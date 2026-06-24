@@ -11,19 +11,24 @@ Pydantic) e aparece automaticamente na CLI e na API.
 
 ```
 core/        contratos e utilitários (operação, registro, parâmetros, intervalos,
-             validação, workspace, erros) — sem dependência de libs de PDF
-engines/     wrappers finos sobre pypdf (estrutural), pikepdf (fallback) e
-             reportlab (geração de overlays)
+             validação, workspace, processos, erros) — sem dependência de libs de PDF
+engines/     wrappers finos sobre cada biblioteca/binário (pypdf, pikepdf, reportlab,
+             PyMuPDF, Pillow, Ghostscript, ocrmypdf, pdfplumber, pyHanko, pdf2docx,
+             LibreOffice), com importação preguiçosa das dependências opcionais
 operations/  uma operação por módulo; é onde mora a lógica de negócio
-cli/         app Typer gerado a partir do registro
+cli/         app Click gerado a partir do registro (um subcomando por operação)
 api/         app FastAPI gerado a partir do registro
 ```
 
-Motor estrutural: **pypdf** (BSD, Python puro). O núcleo é leve e permissivo; motores
-mais pesados (render/OCR via PyMuPDF, Ghostscript) ficam reservados para *extras*
-opcionais futuros.
+Motor estrutural: **pypdf** (BSD, Python puro), com **pikepdf** de fallback. O núcleo é
+leve e permissivo; os motores mais pesados (PyMuPDF, Ghostscript, OCR, Office, assinatura)
+entram apenas como *extras opcionais* — instale só o que for usar. Operações cujo extra
+não está presente continuam listadas, mas falham na execução com uma mensagem clara
+(`MissingDependencyError` → HTTP 501).
 
 ## Operações disponíveis
+
+27 operações organizadas em três níveis. Veja todas com `ptk list`.
 
 **Tier 1 — estrutural (sem dependências extras):**
 `merge`, `split`, `remove-pages`, `extract-pages`, `reorder-pages`, `rotate`, `crop`,
@@ -52,17 +57,14 @@ opcionais futuros.
 | `office-to-pdf` (Office → PDF) | binário `soffice` (LibreOffice) |
 | `pdf-to-word` (PDF → .docx) | `office` (pdf2docx) |
 
-Operações que dependem de extras sempre aparecem em `ptk list` e na API; se a dependência
-não estiver instalada, a execução falha com uma mensagem clara
-(`MissingDependencyError` → HTTP 501).
-
-Intervalos de páginas usam notação 1-based: `1-3,5,8-` (do 8 até o fim), `-2`
-(do início até o 2), `4-2` (invertido).
+Intervalos de páginas (parâmetro `--pages`/`pages`) usam notação 1-based:
+`1-3,5,8-` (do 8 até o fim), `-2` (do início até o 2), `4-2` (invertido).
 
 ## Instalação
 
 ```bash
-uv venv && uv pip install -e ".[cli,api,dev]"
+uv venv && uv pip install -e ".[cli,api]"          # núcleo + CLI + API
+uv pip install -e ".[cli,api,render,images,ocr,tables,sign,office,dev]"  # tudo
 ```
 
 Extras: `cli` (Click), `api` (FastAPI/uvicorn), `render` (PyMuPDF), `images` (Pillow),
