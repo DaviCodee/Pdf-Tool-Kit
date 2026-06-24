@@ -42,6 +42,30 @@ def test_ocr_runs_and_keeps_pages(pdf3):
     assert pe.count_pages(result.single.data) == 3
 
 
+@pytest.mark.skipif(
+    shutil.which("tesseract") is None, reason="tesseract não instalado"
+)
+def test_ocr_warns_when_all_pages_already_have_text(pdf3):
+    pytest.importorskip("ocrmypdf", reason="extra 'ocr' não instalado")
+    op = get_operation("ocr")
+    result = op.execute([PdfInput(pdf3)], op.params_model(language="por"))
+    assert result.meta["paginas_totais"] == 3
+    assert result.meta["paginas_ja_com_texto"] == 3
+    assert result.meta["paginas_processadas"] == 0
+    assert "aviso" in result.meta
+
+
+@pytest.mark.skipif(
+    shutil.which("tesseract") is None, reason="tesseract não instalado"
+)
+def test_ocr_force_reprocesses_and_omits_warning(pdf3):
+    pytest.importorskip("ocrmypdf", reason="extra 'ocr' não instalado")
+    op = get_operation("ocr")
+    result = op.execute([PdfInput(pdf3)], op.params_model(language="por", force=True))
+    assert result.meta["paginas_processadas"] == 3
+    assert "aviso" not in result.meta
+
+
 def test_extract_tables_to_csv():
     pytest.importorskip("pdfplumber", reason="extra 'tables' não instalado")
     op = get_operation("extract-tables")

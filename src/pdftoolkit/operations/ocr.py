@@ -28,8 +28,8 @@ class OcrOperation(PdfOperation[OcrParams]):
     def run(self, inputs: Sequence[PdfInput], params: OcrParams) -> OperationResult:
         item = inputs[0]
         ensure_pdf(item.data, item.name)
-        data = ocr_engine.add_text_layer(
+        data, meta = ocr_engine.add_text_layer(
             item.data, language=params.language, force=params.force
         )
         artifact = Artifact(data=data, filename=safe_filename(params.output_name))
-        return OperationResult(artifacts=[artifact], meta={"language": params.language})
+        return OperationResult(artifacts=[artifact], meta=meta)
