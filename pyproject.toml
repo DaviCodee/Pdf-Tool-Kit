@@ -1,0 +1,69 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pdftoolkit"
+version = "0.1.0"
+description = "Concentrador de operações de PDF: um núcleo Python com adaptadores de CLI e API."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+authors = [{ name = "Davi Moreira" }]
+keywords = ["pdf", "merge", "split", "rotate", "watermark", "toolkit"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Topic :: Utilities",
+]
+dependencies = [
+    "pypdf[crypto]>=4.2",
+    "pikepdf>=8.0",
+    "pydantic>=2.6",
+    "reportlab>=4.0",
+]
+
+[project.optional-dependencies]
+cli = ["typer>=0.12"]
+api = ["fastapi>=0.110", "uvicorn>=0.29", "python-multipart>=0.0.9"]
+render = ["pymupdf>=1.24"]      # AGPL — opcional, fora do núcleo
+ocr = ["ocrmypdf>=16.0"]         # opcional
+tables = ["pdfplumber>=0.11"]    # opcional
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.5",
+    "mypy>=1.10",
+    "httpx>=0.27",
+]
+
+[project.scripts]
+ptk = "pdftoolkit.cli.main:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pdftoolkit"]
+
+[tool.ruff]
+src = ["src", "tests"]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "W"]
+
+[tool.ruff.lint.per-file-ignores]
+# FastAPI usa File()/Form() como defaults (padrão do framework, não é bug).
+"src/pdftoolkit/api/app.py" = ["B008"]
+
+[tool.mypy]
+python_version = "3.11"
+packages = ["pdftoolkit"]
+mypy_path = "src"
+strict = true
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = ["pikepdf.*", "reportlab.*", "pypdf.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
