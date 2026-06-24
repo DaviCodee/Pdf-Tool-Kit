@@ -65,25 +65,33 @@ Intervalos de páginas usam notação 1-based: `1-3,5,8-` (do 8 até o fim), `-2
 uv venv && uv pip install -e ".[cli,api,dev]"
 ```
 
-Extras: `cli` (Typer), `api` (FastAPI/uvicorn), `render` (PyMuPDF), `images` (Pillow),
+Extras: `cli` (Click), `api` (FastAPI/uvicorn), `render` (PyMuPDF), `images` (Pillow),
 `ocr` (ocrmypdf), `tables` (pdfplumber), `sign` (pyHanko), `office` (pdf2docx),
 `dev` (pytest/ruff/mypy). Recursos que dependem de binários do sistema: `compress` (`gs`),
 `ocr` (`tesseract`), `office-to-pdf` (`soffice`/LibreOffice).
 
 ## Uso — CLI
 
+Cada operação é um subcomando próprio (gerado a partir do registro), com flags tipadas
+derivadas do seu modelo de parâmetros:
+
 ```bash
-ptk list                                  # lista as operações
-ptk schema split                          # schema JSON dos parâmetros
-ptk run merge a.pdf b.pdf -o saida/       # junta PDFs
-ptk run split doc.pdf -p every=2 -o out/  # divide a cada 2 páginas
-ptk run rotate doc.pdf -p degrees=90 -p pages=1-2 -o out/
-ptk run watermark doc.pdf -p text=RASCUNHO -o out/
-ptk run metadata-read doc.pdf             # imprime JSON
+ptk list                                   # lista as operações
+ptk schema split                           # schema JSON dos parâmetros
+ptk <operacao> --help                      # ajuda e flags de uma operação
+
+ptk merge a.pdf b.pdf -o saida/            # junta PDFs
+ptk split doc.pdf --every 2 -o out/        # divide a cada 2 páginas
+ptk split doc.pdf --ranges 1-2 --ranges 3-5 -o out/   # campos de lista: repita a flag
+ptk rotate doc.pdf --degrees 90 --pages 1-2 -o out/
+ptk compress doc.pdf --quality screen -o out/
+ptk watermark doc.pdf --text RASCUNHO -o out/
+ptk form-fill form.pdf --values nome=Davi --values cpf=000 -o out/  # dict: chave=valor
+ptk metadata-read doc.pdf                  # operações de leitura imprimem JSON
 ```
 
-Parâmetros: `-p chave=valor` (repita a chave para campos de lista, ex.:
-`-p ranges=1-2 -p ranges=3-5`) ou `--json '{"every": 2}'`.
+Saída: `-o/--out` define o diretório (padrão: diretório atual). Para casos avançados,
+toda operação aceita também `--json '{"every": 2}'` com os parâmetros completos.
 
 ## Uso — API
 
