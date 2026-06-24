@@ -6,6 +6,7 @@ Expõe um registro de operações consumido pelos adaptadores (CLI, API e GUI fu
 from pdftoolkit.core.errors import (
     EncryptedPdfError,
     InvalidInputError,
+    MissingDependencyError,
     OperationError,
     PageRangeError,
     PdfToolkitError,
@@ -20,6 +21,7 @@ __all__ = [
     "Artifact",
     "EncryptedPdfError",
     "InvalidInputError",
+    "MissingDependencyError",
     "OperationError",
     "OperationResult",
     "PageRangeError",

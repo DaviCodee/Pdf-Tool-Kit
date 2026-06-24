@@ -23,10 +23,26 @@ Motor estrutural: **pypdf** (BSD, Python puro). O núcleo é leve e permissivo; 
 mais pesados (render/OCR via PyMuPDF, Ghostscript) ficam reservados para *extras*
 opcionais futuros.
 
-## Operações disponíveis (Tier 1)
+## Operações disponíveis
 
+**Tier 1 — estrutural (sem dependências extras):**
 `merge`, `split`, `remove-pages`, `extract-pages`, `reorder-pages`, `rotate`, `crop`,
-`protect`, `unlock`, `metadata-read`, `metadata-edit`, `page-numbers`, `watermark`.
+`protect`, `unlock`, `metadata-read`, `metadata-edit`, `page-numbers`, `watermark`,
+`optimize-web`.
+
+**Tier 2 — render/conversão (requer extras opcionais):**
+
+| Operação | Extra / binário |
+| --- | --- |
+| `pdf-to-image` (PDF → PNG/JPG) | `render` (PyMuPDF) |
+| `thumbnail` (miniaturas) | `render` (PyMuPDF) |
+| `images-to-pdf` (imagens → PDF) | `images` (Pillow) |
+| `compress` (Ghostscript) | binário `gs` |
+| `ocr` (camada de texto) | `ocr` (ocrmypdf) + binário `tesseract` |
+| `extract-tables` (→ CSV) | `tables` (pdfplumber) |
+
+Operações de Tier 2 sempre aparecem em `ptk list` e na API; se a dependência não estiver
+instalada, a execução falha com uma mensagem clara (`MissingDependencyError` → HTTP 501).
 
 Intervalos de páginas usam notação 1-based: `1-3,5,8-` (do 8 até o fim), `-2`
 (do início até o 2), `4-2` (invertido).
@@ -37,8 +53,9 @@ Intervalos de páginas usam notação 1-based: `1-3,5,8-` (do 8 até o fim), `-2
 uv venv && uv pip install -e ".[cli,api,dev]"
 ```
 
-Extras: `cli` (Typer), `api` (FastAPI/uvicorn), `render`/`ocr`/`tables` (opcionais,
-ainda não usados pelas operações Tier 1), `dev` (pytest/ruff/mypy).
+Extras: `cli` (Typer), `api` (FastAPI/uvicorn), `render` (PyMuPDF), `images` (Pillow),
+`ocr` (ocrmypdf), `tables` (pdfplumber), `dev` (pytest/ruff/mypy). Os recursos de
+`compress` e `ocr` também exigem os binários de sistema `gs` e `tesseract`.
 
 ## Uso — CLI
 

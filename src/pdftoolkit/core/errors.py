@@ -24,3 +24,7 @@ class EncryptedPdfError(PdfToolkitError):
 
 class OperationError(PdfToolkitError):
     """Falha durante a execução de uma operação (motor retornou erro)."""
+
+
+class MissingDependencyError(PdfToolkitError):
+    """Funcionalidade requer uma dependência/binário opcional não instalado."""

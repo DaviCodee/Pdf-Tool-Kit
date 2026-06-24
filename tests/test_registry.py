@@ -20,6 +20,13 @@ EXPECTED = {
     "metadata-edit",
     "page-numbers",
     "watermark",
+    "pdf-to-image",
+    "thumbnail",
+    "images-to-pdf",
+    "compress",
+    "optimize-web",
+    "ocr",
+    "extract-tables",
 }
 
 

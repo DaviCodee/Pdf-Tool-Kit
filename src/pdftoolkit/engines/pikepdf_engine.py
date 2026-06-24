@@ -26,6 +26,19 @@ def remove_password(data: bytes, password: str | None = None) -> bytes:
         raise OperationError(f"falha ao processar o PDF: {exc}") from exc
 
 
+def linearize(data: bytes) -> bytes:
+    """Regrava o PDF de forma linearizada (otimizado para visualização na web)."""
+    try:
+        with pikepdf.open(BytesIO(data)) as pdf:
+            out = BytesIO()
+            pdf.save(out, linearize=True)
+            return out.getvalue()
+    except pikepdf.PasswordError as exc:
+        raise EncryptedPdfError("PDF protegido; remova a senha antes de otimizar") from exc
+    except Exception as exc:  # pragma: no cover - entrada corrompida
+        raise OperationError(f"falha ao otimizar o PDF: {exc}") from exc
+
+
 def count_pages(data: bytes, password: str | None = None) -> int:
     """Conta páginas usando o pikepdf (tolerante a alguns PDFs malformados)."""
     try:

@@ -26,7 +26,8 @@ dependencies = [
 cli = ["typer>=0.12"]
 api = ["fastapi>=0.110", "uvicorn>=0.29", "python-multipart>=0.0.9"]
 render = ["pymupdf>=1.24"]      # AGPL — opcional, fora do núcleo
-ocr = ["ocrmypdf>=16.0"]         # opcional
+images = ["pillow>=10.0"]        # opcional — imagens -> PDF
+ocr = ["ocrmypdf>=16.0"]         # opcional — requer tesseract no sistema
 tables = ["pdfplumber>=0.11"]    # opcional
 dev = [
     "pytest>=8.0",
@@ -61,7 +62,18 @@ strict = true
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
-module = ["pikepdf.*", "reportlab.*", "pypdf.*"]
+module = [
+    "pikepdf.*",
+    "reportlab.*",
+    "pypdf.*",
+    "fitz",
+    "fitz.*",
+    "ocrmypdf",
+    "ocrmypdf.*",
+    "pdfplumber",
+    "pdfplumber.*",
+    "PIL.*",
+]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

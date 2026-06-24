@@ -20,6 +20,7 @@ from pydantic import ValidationError
 from pdftoolkit.core.errors import (
     EncryptedPdfError,
     InvalidInputError,
+    MissingDependencyError,
     PdfToolkitError,
 )
 from pdftoolkit.core.io import OperationResult, PdfInput
@@ -68,6 +69,8 @@ def create_app() -> FastAPI:
         inputs = [PdfInput(await f.read(), f.filename or "input.pdf") for f in files]
         try:
             result = op.execute(inputs, model)
+        except MissingDependencyError as exc:
+            raise HTTPException(status_code=501, detail=str(exc)) from exc
         except (InvalidInputError, EncryptedPdfError) as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         except PdfToolkitError as exc:
