@@ -148,3 +148,35 @@ def page_size(reader: PdfReader, index: int) -> tuple[float, float]:
     """Largura e altura (em pontos) de uma página, a partir da mediabox."""
     box = reader.pages[index].mediabox
     return float(box.width), float(box.height)
+
+
+def extract_page_texts(data: bytes, password: str | None = None) -> list[str]:
+    """Extrai o texto de cada página (string vazia quando não há texto)."""
+    reader = open_reader(data, password)
+    return [page.extract_text() or "" for page in reader.pages]
+
+
+def read_form_fields(data: bytes, password: str | None = None) -> dict[str, str]:
+    """Lê os campos de formulário como ``{nome: valor}``."""
+    reader = open_reader(data, password)
+    fields = reader.get_fields()
+    if not fields:
+        return {}
+    result: dict[str, str] = {}
+    for name, field in fields.items():
+        value = field.get("/V") if hasattr(field, "get") else None
+        result[str(name)] = "" if value is None else str(value)
+    return result
+
+
+def fill_form(data: bytes, values: dict[str, str], *, password: str | None = None) -> bytes:
+    """Preenche campos de formulário e devolve o PDF resultante."""
+    reader = open_reader(data, password)
+    writer = clone_writer(reader)
+    writer.set_need_appearances_writer(True)
+    for page in writer.pages:
+        try:
+            writer.update_page_form_field_values(page, values, auto_regenerate=False)
+        except Exception:  # noqa: S112 - páginas sem widgets são ignoradas
+            continue
+    return write_bytes(writer)

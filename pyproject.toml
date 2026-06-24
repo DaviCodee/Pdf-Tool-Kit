@@ -29,6 +29,8 @@ render = ["pymupdf>=1.24"]      # AGPL — opcional, fora do núcleo
 images = ["pillow>=10.0"]        # opcional — imagens -> PDF
 ocr = ["ocrmypdf>=16.0"]         # opcional — requer tesseract no sistema
 tables = ["pdfplumber>=0.11"]    # opcional
+sign = ["pyhanko>=0.20"]         # opcional — assinatura digital
+office = ["pdf2docx>=0.5"]       # opcional — PDF->Word; Office->PDF requer soffice
 dev = [
     "pytest>=8.0",
     "ruff>=0.5",
@@ -55,7 +57,9 @@ select = ["E", "F", "I", "UP", "B", "W"]
 "src/pdftoolkit/api/app.py" = ["B008"]
 
 [tool.mypy]
-python_version = "3.11"
+# Semântica 3.12 evita falha de parse em stubs de dependências transitivas (numpy);
+# o runtime continua suportando 3.11+ e o ruff valida a sintaxe-alvo py311.
+python_version = "3.12"
 packages = ["pdftoolkit"]
 mypy_path = "src"
 strict = true
@@ -73,7 +77,15 @@ module = [
     "pdfplumber",
     "pdfplumber.*",
     "PIL.*",
+    "pdf2docx",
+    "pdf2docx.*",
+    "pyhanko.*",
 ]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["numpy", "numpy.*"]
+follow_imports = "skip"
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

@@ -27,6 +27,13 @@ EXPECTED = {
     "optimize-web",
     "ocr",
     "extract-tables",
+    "sign",
+    "redact",
+    "compare",
+    "form-read",
+    "form-fill",
+    "office-to-pdf",
+    "pdf-to-word",
 }
 
 

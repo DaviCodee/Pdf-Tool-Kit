@@ -41,8 +41,20 @@ opcionais futuros.
 | `ocr` (camada de texto) | `ocr` (ocrmypdf) + binário `tesseract` |
 | `extract-tables` (→ CSV) | `tables` (pdfplumber) |
 
-Operações de Tier 2 sempre aparecem em `ptk list` e na API; se a dependência não estiver
-instalada, a execução falha com uma mensagem clara (`MissingDependencyError` → HTTP 501).
+**Tier 3 — assinatura, redação, comparação, formulários e Office:**
+
+| Operação | Extra / binário |
+| --- | --- |
+| `sign` (assinatura digital) | `sign` (pyHanko); `.pfx` do usuário ou cert efêmero |
+| `redact` (remoção real de conteúdo) | `render` (PyMuPDF) |
+| `compare` (diff de texto entre 2 PDFs) | **base** |
+| `form-read` / `form-fill` | **base** (pypdf) |
+| `office-to-pdf` (Office → PDF) | binário `soffice` (LibreOffice) |
+| `pdf-to-word` (PDF → .docx) | `office` (pdf2docx) |
+
+Operações que dependem de extras sempre aparecem em `ptk list` e na API; se a dependência
+não estiver instalada, a execução falha com uma mensagem clara
+(`MissingDependencyError` → HTTP 501).
 
 Intervalos de páginas usam notação 1-based: `1-3,5,8-` (do 8 até o fim), `-2`
 (do início até o 2), `4-2` (invertido).
@@ -54,8 +66,9 @@ uv venv && uv pip install -e ".[cli,api,dev]"
 ```
 
 Extras: `cli` (Typer), `api` (FastAPI/uvicorn), `render` (PyMuPDF), `images` (Pillow),
-`ocr` (ocrmypdf), `tables` (pdfplumber), `dev` (pytest/ruff/mypy). Os recursos de
-`compress` e `ocr` também exigem os binários de sistema `gs` e `tesseract`.
+`ocr` (ocrmypdf), `tables` (pdfplumber), `sign` (pyHanko), `office` (pdf2docx),
+`dev` (pytest/ruff/mypy). Recursos que dependem de binários do sistema: `compress` (`gs`),
+`ocr` (`tesseract`), `office-to-pdf` (`soffice`/LibreOffice).
 
 ## Uso — CLI
 
