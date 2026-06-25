@@ -15,6 +15,7 @@ from pdftoolkit.core.registry import register
 from pdftoolkit.core.validation import ensure_pdf, safe_filename
 from pdftoolkit.engines import overlay
 from pdftoolkit.engines import pypdf_engine as pe
+from pdftoolkit.engines import qr as qr_engine
 
 
 class AddTextParams(OperationParams):
@@ -229,3 +230,47 @@ class AddImageOperation(PdfOperation[AddImageParams]):
         data = pe.write_bytes(writer)
         artifact = Artifact(data=data, filename=safe_filename(params.output_name))
         return OperationResult(artifacts=[artifact], meta={"pages": len(targets)})
+
+
+class QrEmbedParams(OperationParams):
+    content: str = Field(min_length=1)
+    x: float = 0.0
+    y: float = 0.0
+    size: float = Field(default=100.0, gt=0)
+    pages: str | None = None
+    output_name: str = "com-qr.pdf"
+
+
+@register
+class QrEmbedOperation(PdfOperation[QrEmbedParams]):
+    name = "qr-embed"
+    category = "editar"
+    summary = "Gera um QR code a partir de 'content' e o embute nas páginas indicadas."
+    params_model = QrEmbedParams
+
+    def run(self, inputs: Sequence[PdfInput], params: QrEmbedParams) -> OperationResult:
+        item = inputs[0]
+        ensure_pdf(item.data, item.name)
+        qr_png = qr_engine.make_qr_png(params.content)
+        reader = pe.open_reader(item.data)
+        writer = pe.clone_writer(reader)
+        total_pages = len(writer.pages)
+        targets = (
+            parse_page_ranges(params.pages, total_pages, unique=True)
+            if params.pages is not None
+            else list(range(total_pages))
+        )
+        if not targets:
+            raise InvalidInputError("nenhuma página selecionada")
+        for index in targets:
+            width, height = pe.page_size(reader, index)
+            stamp = overlay.make_image_overlay(
+                width, height, qr_png,
+                x=params.x, y=params.y,
+                img_width=params.size,
+                img_height=params.size,
+            )
+            pe.merge_overlay(writer, [index], stamp, over=True)
+        data = pe.write_bytes(writer)
+        artifact = Artifact(data=data, filename=safe_filename(params.output_name))
+        return OperationResult(artifacts=[artifact], meta={"content": params.content, "pages": len(targets)})

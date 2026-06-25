@@ -31,6 +31,7 @@ ocr = ["ocrmypdf>=16.0"]         # opcional — requer tesseract no sistema
 tables = ["pdfplumber>=0.11"]    # opcional
 sign = ["pyhanko>=0.20"]         # opcional — assinatura digital
 office = ["pdf2docx>=0.5"]       # opcional — PDF->Word; Office->PDF requer soffice
+qr = ["qrcode[pil]>=7.0"]        # opcional — geração de QR code
 dev = [
     "pytest>=8.0",
     "ruff>=0.5",
@@ -80,6 +81,8 @@ module = [
     "pdf2docx",
     "pdf2docx.*",
     "pyhanko.*",
+    "qrcode",
+    "qrcode.*",
 ]
 ignore_missing_imports = true
 
