@@ -48,3 +48,38 @@ def count_pages(data: bytes, password: str | None = None) -> int:
         raise EncryptedPdfError("senha ausente ou incorreta") from exc
     except Exception as exc:  # pragma: no cover
         raise OperationError(f"falha ao ler o PDF: {exc}") from exc
+
+
+def remove_metadata(data: bytes) -> bytes:
+    """Remove todos os metadados (/Info e XMP) do documento."""
+    try:
+        with pikepdf.open(BytesIO(data)) as pdf:
+            pdf.docinfo.clear()
+            if "/Metadata" in pdf.Root:
+                del pdf.Root["/Metadata"]
+            out = BytesIO()
+            pdf.save(out)
+            return out.getvalue()
+    except pikepdf.PasswordError as exc:
+        raise EncryptedPdfError("PDF protegido; remova a senha antes de limpar metadados") from exc
+    except Exception as exc:
+        raise OperationError(f"falha ao remover metadados: {exc}") from exc
+
+
+def flatten_form(data: bytes) -> bytes:
+    """Remove widgets de formulário preservando o conteúdo visual já renderizado."""
+    try:
+        with pikepdf.open(BytesIO(data)) as pdf:
+            for page in pdf.pages:
+                if "/Annots" in page:
+                    page["/Annots"] = pikepdf.Array(
+                        a for a in page["/Annots"]
+                        if a.get("/Subtype") != pikepdf.Name("/Widget")
+                    )
+            if "/AcroForm" in pdf.Root:
+                del pdf.Root["/AcroForm"]
+            out = BytesIO()
+            pdf.save(out)
+            return out.getvalue()
+    except Exception as exc:
+        raise OperationError(f"falha ao achatar formulário: {exc}") from exc

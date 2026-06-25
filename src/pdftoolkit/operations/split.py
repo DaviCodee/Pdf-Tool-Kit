@@ -67,3 +67,67 @@ class SplitOperation(PdfOperation[SplitParams]):
             return groups
         step = params.every or 1
         return [list(range(start, min(start + step, total))) for start in range(0, total, step)]
+
+
+class SplitBySizeParams(OperationParams):
+    max_mb: float = 5.0
+    output_stem: str = "parte"
+
+    @classmethod
+    def __get_validators__(cls):  # noqa: D105 - pydantic v2 compat
+        yield cls._validate
+
+    @classmethod
+    def _validate(cls, v):
+        return v
+
+    def model_post_init(self, __context) -> None:
+        if self.max_mb <= 0:
+            raise ValueError("'max_mb' deve ser maior que zero")
+
+
+@register
+class SplitBySizeOperation(PdfOperation[SplitBySizeParams]):
+    name = "split-by-size"
+    category = "organizar"
+    summary = "Divide um PDF em partes cujo tamanho não ultrapasse o limite em MB."
+    params_model = SplitBySizeParams
+    min_inputs = 1
+    max_inputs = 1
+
+    def run(self, inputs: Sequence[PdfInput], params: SplitBySizeParams) -> OperationResult:
+        item = inputs[0]
+        ensure_pdf(item.data, item.name)
+        reader = pe.open_reader(item.data)
+        total = len(reader.pages)
+        max_bytes = int(params.max_mb * 1024 * 1024)
+        stem = safe_filename(params.output_stem, fallback="parte").removesuffix(".pdf")
+
+        artifacts: list[Artifact] = []
+        chunk_indices: list[int] = []
+
+        for i in range(total):
+            chunk_indices.append(i)
+            writer = pe.new_writer()
+            pe.add_pages(writer, reader, chunk_indices)
+            candidate = pe.write_bytes(writer)
+            if len(candidate) > max_bytes and len(chunk_indices) > 1:
+                # flush sem a última página e reabra com ela
+                chunk_indices.pop()
+                writer = pe.new_writer()
+                pe.add_pages(writer, reader, chunk_indices)
+                data = pe.write_bytes(writer)
+                artifacts.append(
+                    Artifact(data=data, filename=f"{stem}-{len(artifacts) + 1:03d}.pdf")
+                )
+                chunk_indices = [i]
+
+        if chunk_indices:
+            writer = pe.new_writer()
+            pe.add_pages(writer, reader, chunk_indices)
+            data = pe.write_bytes(writer)
+            artifacts.append(
+                Artifact(data=data, filename=f"{stem}-{len(artifacts) + 1:03d}.pdf")
+            )
+
+        return OperationResult(artifacts=artifacts, meta={"files": len(artifacts)})

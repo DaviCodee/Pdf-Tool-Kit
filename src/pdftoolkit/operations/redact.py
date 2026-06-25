@@ -43,3 +43,23 @@ class RedactOperation(PdfOperation[RedactParams]):
             data, count = redact_engine.redact_regex(item.data, params.pattern)
         artifact = Artifact(data=data, filename=safe_filename(params.output_name))
         return OperationResult(artifacts=[artifact], meta={"redacted": count})
+
+
+class RedactRegexParams(OperationParams):
+    pattern: str
+    output_name: str = "redigido.pdf"
+
+
+@register
+class RedactRegexOperation(PdfOperation[RedactRegexParams]):
+    name = "redact-regex"
+    category = "seguranca"
+    summary = "Remove definitivamente todas as ocorrências de um padrão regex."
+    params_model = RedactRegexParams
+
+    def run(self, inputs: Sequence[PdfInput], params: RedactRegexParams) -> OperationResult:
+        item = inputs[0]
+        ensure_pdf(item.data, item.name)
+        data, count = redact_engine.redact_regex(item.data, params.pattern)
+        artifact = Artifact(data=data, filename=safe_filename(params.output_name))
+        return OperationResult(artifacts=[artifact], meta={"redacted": count})

@@ -115,6 +115,46 @@ def encrypt(
     )
 
 
+def encrypt_advanced(
+    writer: PdfWriter,
+    user_password: str,
+    owner_password: str | None = None,
+    *,
+    allow_printing: bool = True,
+    allow_print_high_quality: bool = True,
+    allow_copy: bool = True,
+    allow_extract_accessibility: bool = True,
+    allow_modify: bool = False,
+    allow_annotate: bool = False,
+    allow_fill_forms: bool = True,
+    allow_assemble: bool = False,
+) -> None:
+    """Criptografia AES-256 com controle individual de cada permissão PDF."""
+    perms = UserAccessPermissions(0)
+    if allow_printing:
+        perms |= UserAccessPermissions.PRINT
+    if allow_print_high_quality:
+        perms |= UserAccessPermissions.PRINT_TO_REPRESENTATION
+    if allow_copy:
+        perms |= UserAccessPermissions.EXTRACT
+    if allow_extract_accessibility:
+        perms |= UserAccessPermissions.EXTRACT_TEXT_AND_GRAPHICS
+    if allow_modify:
+        perms |= UserAccessPermissions.MODIFY
+    if allow_annotate:
+        perms |= UserAccessPermissions.ADD_OR_MODIFY
+    if allow_fill_forms:
+        perms |= UserAccessPermissions.FILL_FORM_FIELDS
+    if allow_assemble:
+        perms |= UserAccessPermissions.ASSEMBLE_DOC
+    writer.encrypt(
+        user_password=user_password,
+        owner_password=owner_password or None,
+        algorithm="AES-256",
+        permissions_flag=perms,
+    )
+
+
 def read_metadata(reader: PdfReader) -> dict[str, str]:
     """Lê o dicionário de informações do documento como ``{chave: valor}``."""
     meta = reader.metadata

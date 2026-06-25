@@ -9,6 +9,7 @@ from pdftoolkit.core.operation import PdfOperation
 from pdftoolkit.core.params import OperationParams
 from pdftoolkit.core.registry import register
 from pdftoolkit.core.validation import ensure_pdf, safe_filename
+from pdftoolkit.engines import pikepdf_engine as pike
 from pdftoolkit.engines import pypdf_engine as pe
 
 
@@ -48,3 +49,24 @@ class FormFillOperation(PdfOperation[FormFillParams]):
         data = pe.fill_form(item.data, params.values)
         artifact = Artifact(data=data, filename=safe_filename(params.output_name))
         return OperationResult(artifacts=[artifact], meta={"filled": sorted(params.values)})
+
+
+class FillFlattenParams(OperationParams):
+    values: dict[str, str]
+    output_name: str = "formulario-fixo.pdf"
+
+
+@register
+class FillFlattenOperation(PdfOperation[FillFlattenParams]):
+    name = "fill-flatten"
+    category = "editar"
+    summary = "Preenche os campos do formulário e os achata (torna não editáveis)."
+    params_model = FillFlattenParams
+
+    def run(self, inputs: Sequence[PdfInput], params: FillFlattenParams) -> OperationResult:
+        item = inputs[0]
+        ensure_pdf(item.data, item.name)
+        filled = pe.fill_form(item.data, params.values)
+        data = pike.flatten_form(filled)
+        artifact = Artifact(data=data, filename=safe_filename(params.output_name))
+        return OperationResult(artifacts=[artifact], meta={"filled": sorted(params.values), "flattened": True})

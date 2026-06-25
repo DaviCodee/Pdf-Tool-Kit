@@ -37,6 +37,34 @@ class CompressOperation(PdfOperation[CompressParams]):
         )
 
 
+class BatchCompressParams(OperationParams):
+    quality: Literal["screen", "ebook", "printer", "prepress"] = "ebook"
+
+
+@register
+class BatchCompressOperation(PdfOperation[BatchCompressParams]):
+    name = "batch-compress"
+    category = "otimizar"
+    summary = "Comprime múltiplos PDFs de uma só vez; retorna um arquivo por entrada."
+    params_model = BatchCompressParams
+    min_inputs = 1
+    max_inputs = None
+
+    def run(self, inputs: Sequence[PdfInput], params: BatchCompressParams) -> OperationResult:
+        artifacts: list[Artifact] = []
+        total_before = total_after = 0
+        for item in inputs:
+            ensure_pdf(item.data, item.name)
+            data = ghostscript.compress(item.data, params.quality)
+            total_before += len(item.data)
+            total_after += len(data)
+            artifacts.append(Artifact(data=data, filename=safe_filename(item.name or "comprimido.pdf")))
+        return OperationResult(
+            artifacts=artifacts,
+            meta={"files": len(artifacts), "original_bytes": total_before, "result_bytes": total_after},
+        )
+
+
 class OptimizeWebParams(OperationParams):
     output_name: str = "otimizado.pdf"
 

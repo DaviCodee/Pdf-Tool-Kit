@@ -9,6 +9,7 @@ from pdftoolkit.core.operation import PdfOperation
 from pdftoolkit.core.params import OperationParams
 from pdftoolkit.core.registry import register
 from pdftoolkit.core.validation import ensure_pdf, safe_filename
+from pdftoolkit.engines import pikepdf_engine as pike
 from pdftoolkit.engines import pypdf_engine as pe
 
 # Mapeia campos amigáveis para as chaves do dicionário de informações do PDF.
@@ -74,3 +75,22 @@ class MetadataEditOperation(PdfOperation[MetadataEditParams]):
         data = pe.write_bytes(writer)
         artifact = Artifact(data=data, filename=safe_filename(params.output_name))
         return OperationResult(artifacts=[artifact], meta={"updated": sorted(updates)})
+
+
+class RemoveMetadataParams(OperationParams):
+    output_name: str = "sem-metadados.pdf"
+
+
+@register
+class RemoveMetadataOperation(PdfOperation[RemoveMetadataParams]):
+    name = "remove-metadata"
+    category = "info"
+    summary = "Remove todos os metadados (/Info e XMP) do documento."
+    params_model = RemoveMetadataParams
+
+    def run(self, inputs: Sequence[PdfInput], params: RemoveMetadataParams) -> OperationResult:
+        item = inputs[0]
+        ensure_pdf(item.data, item.name)
+        data = pike.remove_metadata(item.data)
+        artifact = Artifact(data=data, filename=safe_filename(params.output_name))
+        return OperationResult(artifacts=[artifact], meta={"metadata_removed": True})

@@ -51,6 +51,50 @@ class ProtectOperation(PdfOperation[ProtectParams]):
         return OperationResult(artifacts=[artifact], meta={"encrypted": True})
 
 
+class EncryptAdvancedParams(OperationParams):
+    user_password: str = Field(min_length=1)
+    owner_password: str | None = None
+    allow_printing: bool = True
+    allow_print_high_quality: bool = True
+    allow_copy: bool = True
+    allow_extract_accessibility: bool = True
+    allow_modify: bool = False
+    allow_annotate: bool = False
+    allow_fill_forms: bool = True
+    allow_assemble: bool = False
+    output_name: str = "protegido-avancado.pdf"
+
+
+@register
+class EncryptAdvancedOperation(PdfOperation[EncryptAdvancedParams]):
+    name = "encrypt-advanced"
+    category = "seguranca"
+    summary = "Criptografia AES-256 com controle individual de cada permissão PDF."
+    params_model = EncryptAdvancedParams
+
+    def run(self, inputs: Sequence[PdfInput], params: EncryptAdvancedParams) -> OperationResult:
+        item = inputs[0]
+        ensure_pdf(item.data, item.name)
+        reader = pe.open_reader(item.data)
+        writer = pe.clone_writer(reader)
+        pe.encrypt_advanced(
+            writer,
+            user_password=params.user_password,
+            owner_password=params.owner_password,
+            allow_printing=params.allow_printing,
+            allow_print_high_quality=params.allow_print_high_quality,
+            allow_copy=params.allow_copy,
+            allow_extract_accessibility=params.allow_extract_accessibility,
+            allow_modify=params.allow_modify,
+            allow_annotate=params.allow_annotate,
+            allow_fill_forms=params.allow_fill_forms,
+            allow_assemble=params.allow_assemble,
+        )
+        data = pe.write_bytes(writer)
+        artifact = Artifact(data=data, filename=safe_filename(params.output_name))
+        return OperationResult(artifacts=[artifact], meta={"encrypted": True})
+
+
 class UnlockParams(OperationParams):
     password: str | None = None
     output_name: str = "desbloqueado.pdf"
