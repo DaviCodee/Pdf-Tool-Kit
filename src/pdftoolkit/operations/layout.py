@@ -12,6 +12,7 @@ from pdftoolkit.core.params import OperationParams
 from pdftoolkit.core.ranges import parse_page_ranges
 from pdftoolkit.core.registry import register
 from pdftoolkit.core.validation import ensure_pdf, safe_filename
+from pdftoolkit.engines import pikepdf_engine as pike
 from pdftoolkit.engines import pypdf_engine as pe
 
 # Tamanhos predefinidos em pontos (72 pt = 1 polegada).
@@ -37,6 +38,42 @@ class PageSizeParams(OperationParams):
             raise ValueError("informe 'preset' ou ambos 'width' e 'height'")
         if self.preset is not None and self.preset.lower() not in _PRESETS:
             raise ValueError(f"preset inválido; opções: {sorted(_PRESETS)}")
+
+
+class NupParams(OperationParams):
+    n: int = Field(default=2, ge=2, le=64)
+    paper: str = "a4"
+    landscape: bool | None = None
+    margin: float = Field(default=4.0, ge=0.0)
+    output_name: str = "nup.pdf"
+
+    def model_post_init(self, __context) -> None:
+        if self.paper.lower() not in ("a3", "a4", "a5", "letter", "legal"):
+            raise ValueError("papel inválido; opções: a3, a4, a5, letter, legal")
+
+
+@register
+class NupOperation(PdfOperation[NupParams]):
+    name = "nup"
+    category = "layout"
+    summary = "Coloca N páginas por folha (N-up), preservando vetores e texto pesquisável."
+    params_model = NupParams
+
+    def run(self, inputs: Sequence[PdfInput], params: NupParams) -> OperationResult:
+        item = inputs[0]
+        ensure_pdf(item.data, item.name)
+        data = pike.nup(
+            item.data,
+            params.n,
+            paper=params.paper,
+            landscape=params.landscape,
+            margin=params.margin,
+        )
+        artifact = Artifact(data=data, filename=safe_filename(params.output_name))
+        src_pages = pe.count_pages(item.data)
+        import math
+        out_pages = math.ceil(src_pages / params.n)
+        return OperationResult(artifacts=[artifact], meta={"n": params.n, "output_pages": out_pages})
 
 
 @register
