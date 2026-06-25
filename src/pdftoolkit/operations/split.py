@@ -73,15 +73,7 @@ class SplitBySizeParams(OperationParams):
     max_mb: float = 5.0
     output_stem: str = "parte"
 
-    @classmethod
-    def __get_validators__(cls):  # noqa: D105 - pydantic v2 compat
-        yield cls._validate
-
-    @classmethod
-    def _validate(cls, v):
-        return v
-
-    def model_post_init(self, __context) -> None:
+    def model_post_init(self, __context: object) -> None:
         if self.max_mb <= 0:
             raise ValueError("'max_mb' deve ser maior que zero")
 

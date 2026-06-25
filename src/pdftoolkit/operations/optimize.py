@@ -58,10 +58,16 @@ class BatchCompressOperation(PdfOperation[BatchCompressParams]):
             data = ghostscript.compress(item.data, params.quality)
             total_before += len(item.data)
             total_after += len(data)
-            artifacts.append(Artifact(data=data, filename=safe_filename(item.name or "comprimido.pdf")))
+            artifacts.append(
+                Artifact(data=data, filename=safe_filename(item.name or "comprimido.pdf"))
+            )
         return OperationResult(
             artifacts=artifacts,
-            meta={"files": len(artifacts), "original_bytes": total_before, "result_bytes": total_after},
+            meta={
+                "files": len(artifacts),
+                "original_bytes": total_before,
+                "result_bytes": total_after,
+            },
         )
 
 

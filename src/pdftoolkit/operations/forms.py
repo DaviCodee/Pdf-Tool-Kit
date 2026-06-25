@@ -69,7 +69,9 @@ class FillFlattenOperation(PdfOperation[FillFlattenParams]):
         filled = pe.fill_form(item.data, params.values)
         data = pike.flatten_annotations(filled)
         artifact = Artifact(data=data, filename=safe_filename(params.output_name))
-        return OperationResult(artifacts=[artifact], meta={"filled": sorted(params.values), "flattened": True})
+        return OperationResult(
+            artifacts=[artifact], meta={"filled": sorted(params.values), "flattened": True}
+        )
 
 
 class FlattenParams(OperationParams):

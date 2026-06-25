@@ -12,7 +12,7 @@ from typing import Any
 
 def _qrcode() -> Any:
     try:
-        import qrcode  # type: ignore[import-untyped]
+        import qrcode
     except ImportError as exc:
         from pdftoolkit.core.errors import MissingDependencyError
         raise MissingDependencyError(

@@ -88,7 +88,9 @@ class ExtractAttachmentOperation(PdfOperation[ExtractAttachmentParams]):
                     filespec = pdf.attachments[name]
                     attached_file = filespec.get_file()
                     content = bytes(attached_file.read_bytes())
-                    artifacts.append(Artifact(data=content, filename=safe_filename(name, fallback="anexo")))
+                    artifacts.append(
+                        Artifact(data=content, filename=safe_filename(name, fallback="anexo"))
+                    )
         except Exception as exc:
             raise OperationError(f"falha ao extrair anexos: {exc}") from exc
         return OperationResult(artifacts=artifacts, meta={"extracted": len(artifacts)})

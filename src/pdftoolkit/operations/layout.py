@@ -33,7 +33,7 @@ class PageSizeParams(OperationParams):
     pages: str | None = None
     output_name: str = "redimensionado.pdf"
 
-    def model_post_init(self, __context) -> None:
+    def model_post_init(self, __context: object) -> None:
         if self.preset is None and (self.width is None or self.height is None):
             raise ValueError("informe 'preset' ou ambos 'width' e 'height'")
         if self.preset is not None and self.preset.lower() not in _PRESETS:
@@ -47,7 +47,7 @@ class NupParams(OperationParams):
     margin: float = Field(default=4.0, ge=0.0)
     output_name: str = "nup.pdf"
 
-    def model_post_init(self, __context) -> None:
+    def model_post_init(self, __context: object) -> None:
         if self.paper.lower() not in ("a3", "a4", "a5", "letter", "legal"):
             raise ValueError("papel inválido; opções: a3, a4, a5, letter, legal")
 
@@ -73,7 +73,9 @@ class NupOperation(PdfOperation[NupParams]):
         src_pages = pe.count_pages(item.data)
         import math
         out_pages = math.ceil(src_pages / params.n)
-        return OperationResult(artifacts=[artifact], meta={"n": params.n, "output_pages": out_pages})
+        return OperationResult(
+            artifacts=[artifact], meta={"n": params.n, "output_pages": out_pages}
+        )
 
 
 @register

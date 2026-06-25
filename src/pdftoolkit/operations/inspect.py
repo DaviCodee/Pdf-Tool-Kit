@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from pdftoolkit.core.io import Artifact, OperationResult, PdfInput
+from pdftoolkit.core.io import OperationResult, PdfInput
 from pdftoolkit.core.operation import PdfOperation
 from pdftoolkit.core.params import OperationParams
 from pdftoolkit.core.registry import register
@@ -55,7 +55,7 @@ class HeadersParams(OperationParams):
 class HeadersOperation(PdfOperation[HeadersParams]):
     name = "headers"
     category = "info"
-    summary = "Retorna informações estruturais do PDF: versão, tamanho de páginas, formulários, etc."
+    summary = "Retorna informações estruturais: versão PDF, tamanho de páginas, formulários, etc."
     params_model = HeadersParams
 
     def run(self, inputs: Sequence[PdfInput], params: HeadersParams) -> OperationResult:

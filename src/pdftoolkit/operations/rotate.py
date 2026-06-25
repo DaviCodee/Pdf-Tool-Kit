@@ -85,5 +85,7 @@ class BatchRotateOperation(PdfOperation[BatchRotateParams]):
             )
             pe.rotate_pages(writer, indices, params.degrees)
             data = pe.write_bytes(writer)
-            artifacts.append(Artifact(data=data, filename=safe_filename(item.name or "rotacionado.pdf")))
+            artifacts.append(
+                Artifact(data=data, filename=safe_filename(item.name or "rotacionado.pdf"))
+            )
         return OperationResult(artifacts=artifacts, meta={"files": len(artifacts)})

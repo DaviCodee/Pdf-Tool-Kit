@@ -127,7 +127,7 @@ class StampParams(OperationParams):
 class StampOperation(PdfOperation[StampParams]):
     name = "stamp"
     category = "editar"
-    summary = "Aplica a primeira página do segundo PDF como carimbo (por cima) nas páginas indicadas."
+    summary = "Aplica a primeira página do segundo PDF como carimbo (por cima) nas páginas alvo."
     params_model = StampParams
     min_inputs = 2
     max_inputs = 2
@@ -273,4 +273,6 @@ class QrEmbedOperation(PdfOperation[QrEmbedParams]):
             pe.merge_overlay(writer, [index], stamp, over=True)
         data = pe.write_bytes(writer)
         artifact = Artifact(data=data, filename=safe_filename(params.output_name))
-        return OperationResult(artifacts=[artifact], meta={"content": params.content, "pages": len(targets)})
+        return OperationResult(
+            artifacts=[artifact], meta={"content": params.content, "pages": len(targets)}
+        )

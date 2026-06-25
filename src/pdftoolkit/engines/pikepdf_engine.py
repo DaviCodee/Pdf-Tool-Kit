@@ -6,7 +6,9 @@ de senha em PDFs com estruturas que o pypdf não digere bem).
 
 from __future__ import annotations
 
+import math
 from io import BytesIO
+from typing import Any
 
 import pikepdf
 
@@ -54,7 +56,7 @@ def remove_metadata(data: bytes) -> bytes:
     """Remove todos os metadados (/Info e XMP) do documento."""
     try:
         with pikepdf.open(BytesIO(data)) as pdf:
-            pdf.docinfo.clear()
+            pdf.docinfo.clear()  # type: ignore[operator]
             if "/Metadata" in pdf.Root:
                 del pdf.Root["/Metadata"]
             out = BytesIO()
@@ -83,12 +85,12 @@ def flatten_annotations(data: bytes) -> bytes:
 flatten_form = flatten_annotations
 
 
-def list_bookmarks(data: bytes) -> list[dict]:
+def list_bookmarks(data: bytes) -> list[dict[str, Any]]:
     """Lista os marcadores (outline) do PDF como árvore."""
-    def _items(outline_items) -> list[dict]:
-        result = []
+    def _items(outline_items: list[Any]) -> list[dict[str, Any]]:
+        result: list[dict[str, Any]] = []
         for item in outline_items:
-            entry: dict = {"title": str(item.title)}
+            entry: dict[str, Any] = {"title": str(item.title)}
             if item.children:
                 entry["children"] = _items(item.children)
             result.append(entry)
@@ -102,7 +104,7 @@ def list_bookmarks(data: bytes) -> list[dict]:
         raise OperationError(f"falha ao ler marcadores: {exc}") from exc
 
 
-def add_bookmarks(data: bytes, bookmarks: list[dict]) -> bytes:
+def add_bookmarks(data: bytes, bookmarks: list[dict[str, Any]]) -> bytes:
     """Adiciona marcadores. Cada item deve ter {title, page} (page 0-indexed)."""
     try:
         with pikepdf.open(BytesIO(data)) as pdf:
@@ -147,7 +149,7 @@ def list_fonts(data: bytes) -> list[dict[str, str]]:
         raise OperationError(f"falha ao listar fontes: {exc}") from exc
 
 
-def get_info(data: bytes) -> dict:
+def get_info(data: bytes) -> dict[str, Any]:
     """Retorna informações estruturais do PDF (versão, páginas, tamanhos, etc.)."""
     try:
         with pikepdf.open(BytesIO(data)) as pdf:
@@ -175,7 +177,7 @@ def get_info(data: bytes) -> dict:
         raise OperationError(f"falha ao inspecionar o PDF: {exc}") from exc
 
 
-def validate_pdf(data: bytes) -> dict:
+def validate_pdf(data: bytes) -> dict[str, Any]:
     """Verifica a validade estrutural do PDF."""
     try:
         with pikepdf.open(BytesIO(data)) as pdf:
@@ -212,7 +214,6 @@ _NUP_GRIDS: dict[int, tuple[int, int]] = {
 def _nup_grid(n: int) -> tuple[int, int]:
     if n in _NUP_GRIDS:
         return _NUP_GRIDS[n]
-    import math
     cols = math.ceil(math.sqrt(n))
     rows = math.ceil(n / cols)
     return cols, rows

@@ -245,7 +245,10 @@ def add_blank_page_at(
     width: float | None = None,
     height: float | None = None,
 ) -> bytes:
-    """Insere uma página em branco na posição indicada (0-indexed); tamanho herdado da página adjacente."""
+    """Insere uma página em branco na posição indicada (0-indexed).
+
+    O tamanho é herdado da página adjacente quando não informado.
+    """
     reader = open_reader(data)
     total = len(reader.pages)
     pos = max(0, min(position, total))
