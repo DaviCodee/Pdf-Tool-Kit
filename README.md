@@ -14,48 +14,147 @@ core/        contratos e utilitários (operação, registro, parâmetros, interv
              validação, workspace, processos, erros) — sem dependência de libs de PDF
 engines/     wrappers finos sobre cada biblioteca/binário (pypdf, pikepdf, reportlab,
              PyMuPDF, Pillow, Ghostscript, ocrmypdf, pdfplumber, pyHanko, pdf2docx,
-             LibreOffice), com importação preguiçosa das dependências opcionais
-operations/  uma operação por módulo; é onde mora a lógica de negócio
+             LibreOffice, qrcode), com importação preguiçosa das dependências opcionais
+operations/  lógica de cada operação, declarada com @register; fica disponível
+             automaticamente na CLI e na API
 cli/         app Click gerado a partir do registro (um subcomando por operação)
 api/         app FastAPI gerado a partir do registro
 ```
 
-Motor estrutural: **pypdf** (BSD, Python puro), com **pikepdf** de fallback. O núcleo é
-leve e permissivo; os motores mais pesados (PyMuPDF, Ghostscript, OCR, Office, assinatura)
-entram apenas como *extras opcionais* — instale só o que for usar. Operações cujo extra
-não está presente continuam listadas, mas falham na execução com uma mensagem clara
-(`MissingDependencyError` → HTTP 501).
+Motor estrutural: **pypdf** (BSD, Python puro), com **pikepdf** como motor secundário.
+O núcleo é leve e permissivo; os motores mais pesados (PyMuPDF, Ghostscript, OCR,
+Office, assinatura) entram apenas como *extras opcionais* — instale só o que for usar.
+Operações cujo extra não está presente continuam listadas, mas falham na execução com uma
+mensagem clara (`MissingDependencyError` → HTTP 501).
 
 ## Operações disponíveis
 
-27 operações organizadas em três níveis. Veja todas com `ptk list`.
+**58 operações** organizadas por categoria. Veja todas com `ptk list`.
 
-**Tier 1 — estrutural (sem dependências extras):**
-`merge`, `split`, `remove-pages`, `extract-pages`, `reorder-pages`, `rotate`, `crop`,
-`protect`, `unlock`, `metadata-read`, `metadata-edit`, `page-numbers`, `watermark`,
-`optimize-web`.
+### Organizar / estrutura de páginas
 
-**Tier 2 — render/conversão (requer extras opcionais):**
+| Operação | Descrição | Extra |
+|---|---|---|
+| `merge` | Junta múltiplos PDFs em ordem | — |
+| `merge-folders` | Junta múltiplos PDFs em ordem alfabética | — |
+| `merge-ocr` | Aplica OCR em cada PDF e une em um só | `ocr` |
+| `split` | Divide por N páginas ou intervalos | — |
+| `split-by-size` | Divide em partes com tamanho máximo em MB | — |
+| `remove-pages` | Remove páginas indicadas | — |
+| `extract-pages` | Extrai páginas para novo PDF | — |
+| `reorder-pages` | Reordena páginas | — |
+| `insert-pages` | Insere páginas de outro PDF em posição indicada | — |
+| `add-blank` | Insere páginas em branco | — |
+| `remove-blank` | Detecta e remove páginas em branco | `render` |
+| `rotate` | Gira páginas por múltiplo de 90° | — |
+| `batch-rotate` | Gira múltiplos PDFs de uma vez | — |
+| `crop` | Recorta as páginas | — |
 
-| Operação | Extra / binário |
-| --- | --- |
-| `pdf-to-image` (PDF → PNG/JPG) | `render` (PyMuPDF) |
-| `thumbnail` (miniaturas) | `render` (PyMuPDF) |
-| `images-to-pdf` (imagens → PDF) | `images` (Pillow) |
-| `compress` (Ghostscript) | binário `gs` |
-| `ocr` (camada de texto) | `ocr` (ocrmypdf) + binário `tesseract` |
-| `extract-tables` (→ CSV) | `tables` (pdfplumber) |
+### Layout
 
-**Tier 3 — assinatura, redação, comparação, formulários e Office:**
+| Operação | Descrição | Extra |
+|---|---|---|
+| `nup` | N páginas por folha (2-up, 4-up…) com vetores preservados | — |
+| `page-size` | Altera o tamanho das páginas (A4, letter, etc.) | — |
 
-| Operação | Extra / binário |
-| --- | --- |
-| `sign` (assinatura digital) | `sign` (pyHanko); `.pfx` do usuário ou cert efêmero |
-| `redact` (remoção real de conteúdo) | `render` (PyMuPDF) |
-| `compare` (diff de texto entre 2 PDFs) | **base** |
-| `form-read` / `form-fill` | **base** (pypdf) |
-| `office-to-pdf` (Office → PDF) | binário `soffice` (LibreOffice) |
-| `pdf-to-word` (PDF → .docx) | `office` (pdf2docx) |
+### Otimizar
+
+| Operação | Descrição | Extra |
+|---|---|---|
+| `compress` | Recomprime imagens (Ghostscript) | `gs` |
+| `batch-compress` | Comprime múltiplos PDFs de uma vez | `gs` |
+| `optimize-web` | Lineariza para carregamento progressivo na web | — |
+
+### Converter
+
+| Operação | Descrição | Extra |
+|---|---|---|
+| `pdf-to-image` | Rasteriza páginas para PNG/JPG | `render` |
+| `thumbnail` | Gera miniaturas PNG | `render` |
+| `images-to-pdf` | Combina imagens em um PDF | `images` |
+| `to-pdfa` | Converte para PDF/A (arquivo de longa duração) | `gs` |
+| `repair` | Tenta reparar PDF corrompido | `gs` |
+| `office-to-pdf` | Converte documentos Office para PDF | `soffice` |
+| `pdf-to-word` | Converte PDF para .docx | `office` |
+
+### Editar conteúdo
+
+| Operação | Descrição | Extra |
+|---|---|---|
+| `watermark` | Insere marca d'água de texto diagonal | — |
+| `add-text` | Insere texto em posição absoluta | — |
+| `add-image` | Insere imagem (PNG/JPG) em posição absoluta | — |
+| `stamp` | Aplica um PDF como carimbo por cima | — |
+| `overlay` | Compõe um PDF sobre ou sob outro | — |
+| `qr-embed` | Gera e embute um QR code | `qr` |
+| `page-numbers` | Numera páginas em posição configurável | — |
+| `bates` | Numeração Bates (prefixo + nº + sufixo) | — |
+
+### Formulários
+
+| Operação | Descrição | Extra |
+|---|---|---|
+| `form-read` | Lista campos e valores de formulário | — |
+| `form-fill` | Preenche campos de formulário | — |
+| `fill-flatten` | Preenche e achata (torna não editável) | — |
+| `flatten` | Achata todas as anotações interativas | — |
+
+### Segurança
+
+| Operação | Descrição | Extra |
+|---|---|---|
+| `protect` | Adiciona senha e permissões (AES-256) | — |
+| `encrypt-advanced` | Criptografia com controle individual de cada permissão | — |
+| `unlock` | Remove proteção por senha | — |
+| `redact` | Remove permanentemente texto por termo ou regex | `render` |
+| `redact-regex` | Remove permanentemente texto por expressão regular | `render` |
+
+### OCR
+
+| Operação | Descrição | Extra |
+|---|---|---|
+| `ocr` | Adiciona camada de texto pesquisável | `ocr` + `tesseract` |
+
+### Tabelas
+
+| Operação | Descrição | Extra |
+|---|---|---|
+| `extract-tables` | Extrai tabelas para CSV | `tables` |
+
+### Assinatura digital
+
+| Operação | Descrição | Extra |
+|---|---|---|
+| `sign` | Assina digitalmente (.pfx ou cert efêmero) | `sign` |
+
+### Metadados e informações
+
+| Operação | Descrição | Extra |
+|---|---|---|
+| `metadata-read` | Lê metadados do documento | — |
+| `metadata-edit` | Atualiza campos de metadados | — |
+| `remove-metadata` | Remove todos os metadados (/Info e XMP) | — |
+| `compare` | Compara o texto de dois PDFs | — |
+| `validate` | Verifica integridade estrutural | — |
+| `font-list` | Lista fontes referenciadas | — |
+| `headers` | Informa versão, tamanho de páginas, formulários, etc. | — |
+
+### Marcadores
+
+| Operação | Descrição | Extra |
+|---|---|---|
+| `bookmark` | Adiciona marcadores (outline) | — |
+| `list-bookmarks` | Lista marcadores do documento | — |
+
+### Anexos
+
+| Operação | Descrição | Extra |
+|---|---|---|
+| `add-attachment` | Embute um arquivo como anexo | — |
+| `extract-attachment` | Extrai todos os anexos embutidos | — |
+| `list-attachments` | Lista arquivos embutidos | — |
+
+---
 
 Intervalos de páginas (parâmetro `--pages`/`pages`) usam notação 1-based:
 `1-3,5,8-` (do 8 até o fim), `-2` (do início até o 2), `4-2` (invertido).
@@ -63,33 +162,56 @@ Intervalos de páginas (parâmetro `--pages`/`pages`) usam notação 1-based:
 ## Instalação
 
 ```bash
-uv venv && uv pip install -e ".[cli,api]"          # núcleo + CLI + API
-uv pip install -e ".[cli,api,render,images,ocr,tables,sign,office,dev]"  # tudo
+# Núcleo + CLI + API (sem extras opcionais)
+uv venv && uv pip install -e ".[cli,api]"
+
+# Tudo (inclui todos os extras Python; binários do sistema à parte)
+uv pip install -e ".[cli,api,render,images,ocr,tables,sign,office,qr,dev]"
 ```
 
-Extras: `cli` (Click), `api` (FastAPI/uvicorn), `render` (PyMuPDF), `images` (Pillow),
-`ocr` (ocrmypdf), `tables` (pdfplumber), `sign` (pyHanko), `office` (pdf2docx),
-`dev` (pytest/ruff/mypy). Recursos que dependem de binários do sistema: `compress` (`gs`),
-`ocr` (`tesseract`), `office-to-pdf` (`soffice`/LibreOffice).
+| Extra | Biblioteca | Para que serve |
+|---|---|---|
+| `cli` | Click | Interface de linha de comando |
+| `api` | FastAPI + uvicorn | Servidor HTTP |
+| `render` | PyMuPDF (AGPL) | Rasterização, detecção de páginas em branco, redação |
+| `images` | Pillow | Conversão de imagens para PDF |
+| `ocr` | ocrmypdf | Camada de texto por OCR |
+| `tables` | pdfplumber | Extração de tabelas |
+| `sign` | pyHanko | Assinatura digital |
+| `office` | pdf2docx | PDF → Word |
+| `qr` | qrcode[pil] | Geração de QR codes |
+| `dev` | pytest / ruff / mypy | Desenvolvimento |
+
+**Binários do sistema** (independentes dos extras Python):
+
+| Binário | Necessário para |
+|---|---|
+| `gs` (Ghostscript) | `compress`, `batch-compress`, `to-pdfa`, `repair` |
+| `tesseract` | `ocr` |
+| `soffice` (LibreOffice) | `office-to-pdf` |
 
 ## Uso — CLI
 
-Cada operação é um subcomando próprio (gerado a partir do registro), com flags tipadas
-derivadas do seu modelo de parâmetros:
+Cada operação é um subcomando próprio, com flags tipadas derivadas do seu modelo de
+parâmetros:
 
 ```bash
-ptk list                                   # lista as operações
-ptk schema split                           # schema JSON dos parâmetros
-ptk <operacao> --help                      # ajuda e flags de uma operação
+ptk list                                        # lista as 58 operações
+ptk schema split                                # schema JSON dos parâmetros
+ptk <operacao> --help                           # ajuda e flags de uma operação
 
-ptk merge a.pdf b.pdf -o saida/            # junta PDFs
-ptk split doc.pdf --every 2 -o out/        # divide a cada 2 páginas
-ptk split doc.pdf --ranges 1-2 --ranges 3-5 -o out/   # campos de lista: repita a flag
+ptk merge a.pdf b.pdf -o saida/
+ptk split doc.pdf --every 2 -o out/
+ptk split doc.pdf --ranges 1-2 --ranges 3-5 -o out/
 ptk rotate doc.pdf --degrees 90 --pages 1-2 -o out/
 ptk compress doc.pdf --quality screen -o out/
 ptk watermark doc.pdf --text RASCUNHO -o out/
-ptk form-fill form.pdf --values nome=Davi --values cpf=000 -o out/  # dict: chave=valor
-ptk metadata-read doc.pdf                  # operações de leitura imprimem JSON
+ptk nup doc.pdf --n 4 --paper a4 -o out/
+ptk qr-embed doc.pdf --content "https://exemplo.com" --x 20 --y 20 -o out/
+ptk bates doc.pdf --prefix "DOC-" --digits 5 -o out/
+ptk form-fill form.pdf --values nome=Davi --values cpf=000 -o out/
+ptk metadata-read doc.pdf                       # operações de leitura imprimem JSON
+ptk validate doc.pdf
 ```
 
 Saída: `-o/--out` define o diretório (padrão: diretório atual). Para casos avançados,
@@ -109,7 +231,7 @@ uvicorn pdftoolkit.api.app:app --reload
 ## Desenvolvimento
 
 ```bash
-pytest          # testes (operações geram PDFs em runtime; nada binário é commitado)
+pytest          # 86 testes; PDFs gerados em runtime, nada binário commitado
 ruff check src tests
 mypy
 ```
