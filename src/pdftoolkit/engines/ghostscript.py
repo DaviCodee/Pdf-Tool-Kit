@@ -37,3 +37,49 @@ def compress(data: bytes, quality: str = "ebook") -> bytes:
             cwd=workspace,
         )
         return target.read_bytes()
+
+
+def to_pdfa(data: bytes, level: int = 2) -> bytes:
+    """Converte um PDF para o formato PDF/A (arquivo de longa duração)."""
+    if level not in (1, 2, 3):
+        raise ValueError("level deve ser 1, 2 ou 3")
+    binary = require_binary("gs")
+    with temp_workspace() as workspace:
+        source = workspace / "entrada.pdf"
+        target = workspace / "saida.pdf"
+        source.write_bytes(data)
+        run_command(
+            [
+                binary,
+                "-dBATCH", "-dNOPAUSE", "-dNOOUTERSAVE",
+                "-sDEVICE=pdfwrite",
+                f"-dPDFA={level}",
+                "-dPDFACompatibilityPolicy=1",
+                "-dQUIET",
+                f"-sOutputFile={target}",
+                str(source),
+            ],
+            cwd=workspace,
+        )
+        return target.read_bytes()
+
+
+def repair(data: bytes) -> bytes:
+    """Tenta reparar um PDF corrompido regravando-o via Ghostscript."""
+    binary = require_binary("gs")
+    with temp_workspace() as workspace:
+        source = workspace / "entrada.pdf"
+        target = workspace / "saida.pdf"
+        source.write_bytes(data)
+        run_command(
+            [
+                binary,
+                "-dBATCH", "-dNOPAUSE",
+                "-sDEVICE=pdfwrite",
+                "-dQUIET",
+                f"-sOutputFile={target}",
+                str(source),
+            ],
+            cwd=workspace,
+        )
+        return target.read_bytes()

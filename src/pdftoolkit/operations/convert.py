@@ -1,4 +1,4 @@
-"""Operações de conversão entre PDF e imagens."""
+"""Operações de conversão entre PDF e imagens, e conversão de formato."""
 
 from __future__ import annotations
 
@@ -13,6 +13,7 @@ from pdftoolkit.core.params import OperationParams
 from pdftoolkit.core.ranges import parse_page_ranges
 from pdftoolkit.core.registry import register
 from pdftoolkit.core.validation import ensure_pdf, safe_filename
+from pdftoolkit.engines import ghostscript
 from pdftoolkit.engines import images as images_engine
 from pdftoolkit.engines import render
 
@@ -113,3 +114,41 @@ class ImagesToPdfOperation(PdfOperation[ImagesToPdfParams]):
         data = images_engine.images_to_pdf([item.data for item in inputs], dpi=params.dpi)
         artifact = Artifact(data=data, filename=safe_filename(params.output_name))
         return OperationResult(artifacts=[artifact], meta={"pages": len(inputs)})
+
+
+class ToPdfAParams(OperationParams):
+    level: Literal[1, 2, 3] = 2
+    output_name: str = "arquivo-pdfa.pdf"
+
+
+@register
+class ToPdfAOperation(PdfOperation[ToPdfAParams]):
+    name = "to-pdfa"
+    category = "converter"
+    summary = "Converte um PDF para o formato PDF/A (arquivo de longa duração)."
+    params_model = ToPdfAParams
+
+    def run(self, inputs: Sequence[PdfInput], params: ToPdfAParams) -> OperationResult:
+        item = inputs[0]
+        ensure_pdf(item.data, item.name)
+        data = ghostscript.to_pdfa(item.data, level=params.level)
+        artifact = Artifact(data=data, filename=safe_filename(params.output_name))
+        return OperationResult(artifacts=[artifact], meta={"pdfa_level": params.level})
+
+
+class RepairParams(OperationParams):
+    output_name: str = "reparado.pdf"
+
+
+@register
+class RepairOperation(PdfOperation[RepairParams]):
+    name = "repair"
+    category = "converter"
+    summary = "Tenta reparar um PDF corrompido regravando-o via Ghostscript."
+    params_model = RepairParams
+
+    def run(self, inputs: Sequence[PdfInput], params: RepairParams) -> OperationResult:
+        item = inputs[0]
+        data = ghostscript.repair(item.data)
+        artifact = Artifact(data=data, filename=safe_filename(params.output_name))
+        return OperationResult(artifacts=[artifact], meta={"repaired": True})

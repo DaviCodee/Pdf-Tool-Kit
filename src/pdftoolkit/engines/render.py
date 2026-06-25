@@ -84,3 +84,30 @@ def page_count(data: bytes, password: str | None = None) -> int:
         return int(document.page_count)
     finally:
         document.close()
+
+
+def detect_blank_pages(
+    data: bytes,
+    *,
+    dpi: int = 72,
+    threshold: float = 0.99,
+    password: str | None = None,
+) -> list[int]:
+    """Retorna os índices (0-based) das páginas consideradas em branco.
+
+    Uma página é em branco quando a proporção de pixels claros (>250 em escala de
+    cinza) é maior ou igual a ``threshold``.
+    """
+    fitz = _fitz()
+    document = _open(data, password)
+    blank: list[int] = []
+    try:
+        for i in range(document.page_count):
+            pixmap = document[i].get_pixmap(dpi=dpi, colorspace=fitz.csGRAY)
+            samples = pixmap.samples
+            white = sum(1 for b in samples if b > 250)
+            if white / max(len(samples), 1) >= threshold:
+                blank.append(i)
+    finally:
+        document.close()
+    return blank

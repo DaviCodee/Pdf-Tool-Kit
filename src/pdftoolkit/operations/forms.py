@@ -67,6 +67,25 @@ class FillFlattenOperation(PdfOperation[FillFlattenParams]):
         item = inputs[0]
         ensure_pdf(item.data, item.name)
         filled = pe.fill_form(item.data, params.values)
-        data = pike.flatten_form(filled)
+        data = pike.flatten_annotations(filled)
         artifact = Artifact(data=data, filename=safe_filename(params.output_name))
         return OperationResult(artifacts=[artifact], meta={"filled": sorted(params.values), "flattened": True})
+
+
+class FlattenParams(OperationParams):
+    output_name: str = "achatado.pdf"
+
+
+@register
+class FlattenOperation(PdfOperation[FlattenParams]):
+    name = "flatten"
+    category = "editar"
+    summary = "Achata todas as anotações interativas (formulários, widgets, etc.)."
+    params_model = FlattenParams
+
+    def run(self, inputs: Sequence[PdfInput], params: FlattenParams) -> OperationResult:
+        item = inputs[0]
+        ensure_pdf(item.data, item.name)
+        data = pike.flatten_annotations(item.data)
+        artifact = Artifact(data=data, filename=safe_filename(params.output_name))
+        return OperationResult(artifacts=[artifact], meta={"flattened": True})

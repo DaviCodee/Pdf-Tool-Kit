@@ -5,10 +5,14 @@ dos decoradores ``@register`` em cada módulo).
 """
 
 from pdftoolkit.operations import (  # noqa: F401
+    attachments,
+    bookmarks,
     compare,
     convert,
     crop,
     forms,
+    inspect,
+    layout,
     merge,
     metadata,
     ocr,

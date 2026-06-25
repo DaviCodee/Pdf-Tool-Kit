@@ -220,3 +220,62 @@ def fill_form(data: bytes, values: dict[str, str], *, password: str | None = Non
         except Exception:  # noqa: S112 - páginas sem widgets são ignoradas
             continue
     return write_bytes(writer)
+
+
+def insert_pages_at(base_data: bytes, insert_data: bytes, position: int) -> bytes:
+    """Insere todas as páginas de insert_data em base_data na posição indicada (0-indexed)."""
+    base_reader = open_reader(base_data)
+    insert_reader = open_reader(insert_data)
+    total = len(base_reader.pages)
+    pos = max(0, min(position, total))
+    writer = PdfWriter()
+    for page in list(base_reader.pages)[:pos]:
+        writer.add_page(page)
+    for page in insert_reader.pages:
+        writer.add_page(page)
+    for page in list(base_reader.pages)[pos:]:
+        writer.add_page(page)
+    return write_bytes(writer)
+
+
+def add_blank_page_at(
+    data: bytes,
+    position: int,
+    *,
+    width: float | None = None,
+    height: float | None = None,
+) -> bytes:
+    """Insere uma página em branco na posição indicada (0-indexed); tamanho herdado da página adjacente."""
+    reader = open_reader(data)
+    total = len(reader.pages)
+    pos = max(0, min(position, total))
+    if width is None or height is None:
+        ref_idx = min(pos, total - 1)
+        box = reader.pages[ref_idx].mediabox
+        width = float(box.width)
+        height = float(box.height)
+    writer = PdfWriter()
+    for i, page in enumerate(reader.pages):
+        if i == pos:
+            writer.add_blank_page(width=width, height=height)
+        writer.add_page(page)
+    if pos >= total:
+        writer.add_blank_page(width=width, height=height)
+    return write_bytes(writer)
+
+
+def resize_pages(
+    data: bytes,
+    width: float,
+    height: float,
+    indices: list[int] | None = None,
+) -> bytes:
+    """Altera a mediabox das páginas indicadas para (width x height) em pontos."""
+    reader = open_reader(data)
+    writer = clone_writer(reader)
+    targets = set(range(len(writer.pages))) if indices is None else set(indices)
+    for i, page in enumerate(writer.pages):
+        if i in targets:
+            page.mediabox.upper_right = (width, height)
+            page.mediabox.lower_left = (0, 0)
+    return write_bytes(writer)

@@ -43,6 +43,39 @@ def make_text_overlay(
     return buffer.getvalue()
 
 
+def make_image_overlay(
+    width: float,
+    height: float,
+    image_data: bytes,
+    *,
+    x: float,
+    y: float,
+    img_width: float | None = None,
+    img_height: float | None = None,
+) -> bytes:
+    """Cria um overlay de uma página com uma imagem posicionada em (x, y)."""
+    from io import BytesIO as _BytesIO
+
+    from reportlab.lib.utils import ImageReader
+
+    buffer = BytesIO()
+    canvas = Canvas(buffer, pagesize=(width, height))
+    img = ImageReader(_BytesIO(image_data))
+    iw, ih = img.getSize()
+    if img_width is not None and img_height is None:
+        draw_w, draw_h = img_width, img_width * ih / max(iw, 1)
+    elif img_height is not None and img_width is None:
+        draw_w, draw_h = img_height * iw / max(ih, 1), img_height
+    elif img_width is not None and img_height is not None:
+        draw_w, draw_h = img_width, img_height
+    else:
+        draw_w, draw_h = float(iw), float(ih)
+    canvas.drawImage(img, x, y, width=draw_w, height=draw_h, mask="auto")
+    canvas.showPage()
+    canvas.save()
+    return buffer.getvalue()
+
+
 def make_watermark_overlay(
     width: float,
     height: float,

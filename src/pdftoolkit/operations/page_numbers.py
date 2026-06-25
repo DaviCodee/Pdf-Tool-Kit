@@ -106,3 +106,58 @@ def _place(
         x, anchor = width / 2.0, "center"
     y = height - margin if vertical == "top" else margin
     return x, y, anchor
+
+
+class BatesParams(OperationParams):
+    prefix: str = ""
+    suffix: str = ""
+    start: int = 1
+    digits: int = 6
+    position: str = "bottom-right"
+    margin: float = 36.0
+    font_size: float = 10.0
+    pages: str | None = None
+    output_name: str = "bates.pdf"
+
+    @field_validator("position")
+    @classmethod
+    def _known_position(cls, value: str) -> str:
+        if value not in _POSITIONS:
+            raise ValueError(f"posição inválida; use uma de {sorted(_POSITIONS)}")
+        return value
+
+
+@register
+class BatesOperation(PdfOperation[BatesParams]):
+    name = "bates"
+    category = "editar"
+    summary = "Aplica numeração Bates (prefixo + número com dígitos fixos + sufixo)."
+    params_model = BatesParams
+
+    def run(self, inputs: Sequence[PdfInput], params: BatesParams) -> OperationResult:
+        item = inputs[0]
+        ensure_pdf(item.data, item.name)
+        reader = pe.open_reader(item.data)
+        writer = pe.clone_writer(reader)
+        total_pages = len(writer.pages)
+        targets = (
+            parse_page_ranges(params.pages, total_pages, unique=True)
+            if params.pages is not None
+            else list(range(total_pages))
+        )
+        if not targets:
+            raise InvalidInputError("nenhuma página selecionada")
+
+        for sequence, index in enumerate(targets):
+            width, height = pe.page_size(reader, index)
+            x, y, anchor = _place(width, height, params.position, params.margin)
+            number = str(params.start + sequence).zfill(params.digits)
+            label = f"{params.prefix}{number}{params.suffix}"
+            stamp = overlay.make_text_overlay(
+                width, height, label, x=x, y=y, size=params.font_size, anchor=anchor
+            )
+            pe.merge_overlay(writer, [index], stamp, over=True)
+
+        data = pe.write_bytes(writer)
+        artifact = Artifact(data=data, filename=safe_filename(params.output_name))
+        return OperationResult(artifacts=[artifact], meta={"stamped": len(targets)})
