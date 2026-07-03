@@ -10,6 +10,7 @@ from pdftoolkit.operations import (  # noqa: F401
     compare,
     convert,
     crop,
+    extract,
     forms,
     inspect,
     layout,
