@@ -56,7 +56,9 @@ def remove_metadata(data: bytes) -> bytes:
     """Remove todos os metadados (/Info e XMP) do documento."""
     try:
         with pikepdf.open(BytesIO(data)) as pdf:
-            pdf.docinfo.clear()  # type: ignore[operator]
+            # docinfo pode não existir (PDF sem /Info) — remove direto do trailer
+            if "/Info" in pdf.trailer:
+                del pdf.trailer["/Info"]
             if "/Metadata" in pdf.Root:
                 del pdf.Root["/Metadata"]
             out = BytesIO()
