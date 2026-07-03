@@ -111,3 +111,69 @@ def detect_blank_pages(
     finally:
         document.close()
     return blank
+
+
+def compare_visual(
+    data1: bytes,
+    data2: bytes,
+    *,
+    dpi: int = 120,
+) -> tuple[bytes, bool]:
+    """Compara dois PDFs visualmente, página a página.
+
+    Renderiza cada página, calcula a diferença de pixels e devolve um PDF em
+    que cada página é a renderização do primeiro documento com a região
+    divergente contornada em vermelho. Retorna ``(pdf_bytes, has_diff)``.
+
+    Requer os extras ``render`` (PyMuPDF) e ``images`` (Pillow).
+    """
+    import io
+
+    try:
+        from PIL import Image, ImageChops, ImageDraw
+    except ImportError as exc:
+        raise MissingDependencyError(
+            "comparação visual requer o extra 'images' (pip install pdftoolkit[images])"
+        ) from exc
+
+    fitz = _fitz()
+    doc1 = _open(data1, None)
+    doc2 = _open(data2, None)
+    out = fitz.open()
+    has_diff = False
+    try:
+        total = max(doc1.page_count, doc2.page_count)
+        for i in range(total):
+            p1 = doc1[i] if i < doc1.page_count else None
+            p2 = doc2[i] if i < doc2.page_count else None
+            ref = p1 or p2
+            img1 = (
+                Image.open(io.BytesIO(p1.get_pixmap(dpi=dpi).tobytes("png"))).convert("RGB")
+                if p1 else None
+            )
+            img2 = (
+                Image.open(io.BytesIO(p2.get_pixmap(dpi=dpi).tobytes("png"))).convert("RGB")
+                if p2 else None
+            )
+            if img1 and img2:
+                if img1.size != img2.size:
+                    img2 = img2.resize(img1.size)
+                bbox = ImageChops.difference(img1, img2).getbbox()
+                composite = img1.copy()
+                if bbox:
+                    has_diff = True
+                    ImageDraw.Draw(composite).rectangle(bbox, outline=(255, 0, 0), width=4)
+            else:
+                # página existe em só um dos documentos
+                has_diff = True
+                composite = img1 or img2
+
+            buf = io.BytesIO()
+            composite.save(buf, format="PNG")
+            page = out.new_page(width=ref.rect.width, height=ref.rect.height)
+            page.insert_image(ref.rect, stream=buf.getvalue())
+        return out.tobytes(), has_diff
+    finally:
+        out.close()
+        doc1.close()
+        doc2.close()

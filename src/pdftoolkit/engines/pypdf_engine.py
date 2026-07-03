@@ -175,13 +175,19 @@ def merge_overlay(
     *,
     over: bool = True,
 ) -> None:
-    """Compõe a primeira página de ``overlay_pdf`` sobre (ou sob) as páginas alvo."""
+    """Compõe ``overlay_pdf`` sobre (ou sob) as páginas alvo.
+
+    As páginas do overlay avançam junto com as páginas alvo; quando o overlay
+    tem menos páginas, a última é repetida (overlay de 1 página vale para o
+    documento inteiro).
+    """
     overlay_reader = open_reader(overlay_pdf)
-    overlay_page = overlay_reader.pages[0]
+    overlay_pages = overlay_reader.pages
+    last = len(overlay_pages) - 1
     pages = writer.pages
     targets = range(len(pages)) if indices is None else list(indices)
-    for index in targets:
-        pages[index].merge_page(overlay_page, over=over)
+    for pos, index in enumerate(targets):
+        pages[index].merge_page(overlay_pages[min(pos, last)], over=over)
 
 
 def page_size(reader: PdfReader, index: int) -> tuple[float, float]:

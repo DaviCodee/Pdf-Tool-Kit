@@ -182,13 +182,21 @@ def validate_pdf(data: bytes) -> dict[str, Any]:
     try:
         with pikepdf.open(BytesIO(data)) as pdf:
             issues = [str(i) for i in pdf.check_pdf_syntax()]
-            return {"valid": len(issues) == 0, "pages": len(pdf.pages), "issues": issues}
+            return {
+                "valid": len(issues) == 0,
+                "pages": len(pdf.pages),
+                "issues": issues,
+                "version": str(pdf.pdf_version),
+                "encrypted": pdf.is_encrypted,
+            }
     except pikepdf.PasswordError:
-        return {"valid": True, "encrypted": True, "pages": None, "issues": []}
+        return {"valid": True, "encrypted": True, "pages": None, "issues": [], "version": None}
     except pikepdf.PdfError as exc:
-        return {"valid": False, "pages": None, "issues": [str(exc)]}
+        return {"valid": False, "pages": None, "issues": [str(exc)], "version": None,
+                "encrypted": None}
     except Exception as exc:
-        return {"valid": False, "pages": None, "issues": [str(exc)]}
+        return {"valid": False, "pages": None, "issues": [str(exc)], "version": None,
+                "encrypted": None}
 
 
 # Papel em pontos (portrait). Tamanho A4 como default de saída.
