@@ -14,7 +14,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install system binaries
-        run: sudo apt-get update && sudo apt-get install -y ghostscript tesseract-ocr tesseract-ocr-por libreoffice
+        run: sudo apt-get update && sudo apt-get install -y ghostscript tesseract-ocr tesseract-ocr-por libreoffice libpango-1.0-0 libpangoft2-1.0-0 libcairo2
       - name: Install uv
         uses: astral-sh/setup-uv@v6
       - name: Set up Python
@@ -22,7 +22,7 @@ jobs:
       - name: Create virtual environment
         run: uv venv --python ${{ matrix.python-version }}
       - name: Install project
-        run: uv pip install -e ".[cli,api,dev,render,images,ocr,tables,sign,office,qr]"
+        run: uv pip install -e ".[cli,api,dev,render,images,ocr,tables,sign,office,qr,xlsx,html]"
       - name: Lint
         run: uv run ruff check src tests
       - name: Type-check

@@ -41,8 +41,13 @@ def render_pages(
     fmt: str = "png",
     password: str | None = None,
 ) -> list[bytes]:
-    """Renderiza páginas para imagens. ``fmt`` em ``{"png", "jpg"}``."""
-    output_format = "jpeg" if fmt in {"jpg", "jpeg"} else "png"
+    """Renderiza páginas para imagens. ``fmt`` em ``{"png", "jpg", "ppm"}``."""
+    if fmt in {"jpg", "jpeg"}:
+        output_format = "jpeg"
+    elif fmt == "ppm":
+        output_format = "ppm"
+    else:
+        output_format = "png"
     document = _open(data, password)
     try:
         chosen = range(document.page_count) if indices is None else indices
@@ -82,6 +87,23 @@ def page_count(data: bytes, password: str | None = None) -> int:
     document = _open(data, password)
     try:
         return int(document.page_count)
+    finally:
+        document.close()
+
+
+def page_to_svg(
+    data: bytes,
+    indices: Sequence[int] | None = None,
+    *,
+    password: str | None = None,
+) -> list[bytes]:
+    """Exporta páginas como SVG (vetorial), uma por entrada."""
+    document = _open(data, password)
+    try:
+        chosen = range(document.page_count) if indices is None else indices
+        return [
+            document[index].get_svg_image().encode("utf-8") for index in chosen
+        ]
     finally:
         document.close()
 

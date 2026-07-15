@@ -29,7 +29,7 @@ mensagem clara (`MissingDependencyError` → HTTP 501).
 
 ## Operações disponíveis
 
-**58 operações** organizadas por categoria. Veja todas com `ptk list`.
+**74 operações** organizadas por categoria. Veja todas com `ptk list`.
 
 ### Organizar / estrutura de páginas
 
@@ -70,6 +70,18 @@ mensagem clara (`MissingDependencyError` → HTTP 501).
 | Operação | Descrição | Extra |
 |---|---|---|
 | `pdf-to-image` | Rasteriza páginas para PNG/JPG | `render` |
+| `pdf-to-tiff` | Rasteriza páginas para TIFF | `render` + `images` |
+| `pdf-to-webp` | Rasteriza páginas para WebP (lossy/lossless) | `render` + `images` |
+| `pdf-to-bmp` | Rasteriza páginas para BMP | `render` + `images` |
+| `pdf-to-ppm` | Rasteriza páginas para PPM (sem Pillow) | `render` |
+| `pdf-to-svg` | Exporta páginas como SVG vetorial | `render` |
+| `pdf-to-text` | Extrai texto de cada página em um .txt | — |
+| `pdf-to-html` | Empacota o texto em HTML autocontido | — |
+| `pdf-to-json` | Texto com bounding boxes em JSON | `tables` |
+| `pdf-to-markdown` | Converte em Markdown (cabeçalhos pela fonte) | `tables` |
+| `pdf-to-xlsx` | Tabelas em abas de um único .xlsx | `tables` + `xlsx` |
+| `txt-to-pdf` | Texto plano em PDF | — |
+| `html-to-pdf` | HTML em PDF (WeasyPrint, BSD) | `html` + `cairo/pango` |
 | `thumbnail` | Gera miniaturas PNG | `render` |
 | `images-to-pdf` | Combina imagens em um PDF | `images` |
 | `to-pdfa` | Converte para PDF/A (arquivo de longa duração) | `gs` |
@@ -166,20 +178,22 @@ Intervalos de páginas (parâmetro `--pages`/`pages`) usam notação 1-based:
 uv venv && uv pip install -e ".[cli,api]"
 
 # Tudo (inclui todos os extras Python; binários do sistema à parte)
-uv pip install -e ".[cli,api,render,images,ocr,tables,sign,office,qr,dev]"
+uv pip install -e ".[cli,api,render,images,ocr,tables,sign,office,qr,xlsx,html,dev]"
 ```
 
 | Extra | Biblioteca | Para que serve |
 |---|---|---|
 | `cli` | Click | Interface de linha de comando |
 | `api` | FastAPI + uvicorn | Servidor HTTP |
-| `render` | PyMuPDF (AGPL) | Rasterização, detecção de páginas em branco, redação |
-| `images` | Pillow | Conversão de imagens para PDF |
+| `render` | PyMuPDF (AGPL) | Rasterização, detecção de páginas em branco, redação, SVG |
+| `images` | Pillow | Conversão de imagens para PDF e entre formatos |
 | `ocr` | ocrmypdf | Camada de texto por OCR |
-| `tables` | pdfplumber | Extração de tabelas |
-| `sign` | pyHanko | Assinatura digital |
+| `tables` | pdfplumber | Extração de tabelas, layout posicional, Markdown |
+| `sign` | pyhanko | Assinatura digital |
 | `office` | pdf2docx | PDF → Word |
 | `qr` | qrcode[pil] | Geração de QR codes |
+| `xlsx` | openpyxl | Tabelas em planilha .xlsx |
+| `html` | WeasyPrint (BSD) | HTML → PDF (CSS3) |
 | `dev` | pytest / ruff / mypy | Desenvolvimento |
 
 **Binários do sistema** (independentes dos extras Python):
@@ -189,6 +203,7 @@ uv pip install -e ".[cli,api,render,images,ocr,tables,sign,office,qr,dev]"
 | `gs` (Ghostscript) | `compress`, `batch-compress`, `to-pdfa`, `repair` |
 | `tesseract` | `ocr` |
 | `soffice` (LibreOffice) | `office-to-pdf` |
+| `libcairo2` + `libpango-1.0-0` | `html-to-pdf` (WeasyPrint) |
 
 ## Uso — CLI
 
@@ -196,7 +211,7 @@ Cada operação é um subcomando próprio, com flags tipadas derivadas do seu mo
 parâmetros:
 
 ```bash
-ptk list                                        # lista as 58 operações
+ptk list                                        # lista as 74 operações
 ptk schema split                                # schema JSON dos parâmetros
 ptk <operacao> --help                           # ajuda e flags de uma operação
 
@@ -210,6 +225,11 @@ ptk nup doc.pdf --n 4 --paper a4 -o out/
 ptk qr-embed doc.pdf --content "https://exemplo.com" --x 20 --y 20 -o out/
 ptk bates doc.pdf --prefix "DOC-" --digits 5 -o out/
 ptk form-fill form.pdf --values nome=Davi --values cpf=000 -o out/
+ptk pdf-to-text doc.pdf -o out/
+ptk pdf-to-markdown doc.pdf -o out/
+ptk pdf-to-svg doc.pdf -o out/
+ptk txt-to-pdf texto.txt -o out/
+ptk html-to-pdf pagina.html -o out/
 ptk metadata-read doc.pdf                       # operações de leitura imprimem JSON
 ptk validate doc.pdf
 ```

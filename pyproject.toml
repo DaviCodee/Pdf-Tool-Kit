@@ -32,6 +32,8 @@ tables = ["pdfplumber>=0.11"]    # opcional
 sign = ["pyhanko>=0.20"]         # opcional — assinatura digital
 office = ["pdf2docx>=0.5"]       # opcional — PDF->Word; Office->PDF requer soffice
 qr = ["qrcode[pil]>=7.0"]        # opcional — geração de QR code
+xlsx = ["openpyxl>=3.1"]         # opcional — tabelas -> planilha
+html = ["weasyprint>=60.0"]      # opcional — HTML -> PDF (BSD)
 dev = [
     "pytest>=8.0",
     "ruff>=0.5",
@@ -83,6 +85,10 @@ module = [
     "pyhanko.*",
     "qrcode",
     "qrcode.*",
+    "openpyxl",
+    "openpyxl.*",
+    "weasyprint",
+    "weasyprint.*",
 ]
 ignore_missing_imports = true
 
