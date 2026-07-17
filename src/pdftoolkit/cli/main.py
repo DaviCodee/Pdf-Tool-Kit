@@ -7,13 +7,18 @@ de parâmetros Pydantic:
     ptk schema <operacao>             mostra o schema JSON dos parâmetros
     ptk merge a.pdf b.pdf -o saida/   executa a operação 'merge'
     ptk compress doc.pdf --quality screen -o out/
+
+Um caminho de diretório é expandido recursivamente (arquivos ocultos ignorados),
+filtrado por padrão a arquivos ``.pdf``. Operações que consomem outros formatos de
+origem (``images-to-pdf``, ``txt-to-pdf``, ``html-to-pdf``, ``office-to-pdf``) precisam
+de ``--ext`` para expandir uma pasta com esses arquivos (ex.: ``--ext .png``).
 """
 
 from __future__ import annotations
 
 import json
 import types
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, Literal, Union, get_args, get_origin
 
 import click
@@ -25,6 +30,11 @@ from pdftoolkit.core.registry import all_operations, get_operation
 
 _RESERVED = {"list", "schema"}
 _PY_TYPES: dict[type, type] = {int: int, float: float, str: str}
+
+# Extensões consideradas ao expandir diretórios (arquivos passados explicitamente
+# nunca são filtrados). ``--ext`` sobrepõe esta lista — necessário para operações
+# que consomem imagens/texto/html/office em vez de PDF.
+_FOLDER_WHITELIST: frozenset[str] = frozenset({".pdf"})
 
 
 @click.group(help="Concentrador de operações de PDF.")
@@ -114,15 +124,48 @@ def _split_pair(item: str) -> tuple[str, str]:
     return key.strip(), value
 
 
+def _resolve_whitelist(exts: tuple[str, ...]) -> frozenset[str] | None:
+    if not exts:
+        return _FOLDER_WHITELIST
+    return frozenset(
+        ext.lower() if ext.startswith(".") else f".{ext.lower()}" for ext in exts
+    )
+
+
+def _expand_paths(
+    paths: tuple[str, ...], extensions: frozenset[str] | None
+) -> list[tuple[Path, str]]:
+    """Expande diretórios recursivamente em pares (caminho, nome_relativo)."""
+    resolved: list[tuple[Path, str]] = []
+    for raw in paths:
+        path = Path(raw).expanduser()
+        if not path.is_dir():
+            resolved.append((path, path.name))
+            continue
+        found = [
+            (p, p.relative_to(path).as_posix())
+            for p in sorted(path.rglob("*"))
+            if p.is_file()
+            and not any(part.startswith(".") for part in p.relative_to(path).parts)
+            and (extensions is None or p.suffix.lower() in extensions)
+        ]
+        if not found:
+            raise click.ClickException(f"nenhum arquivo compatível em: {path}")
+        resolved.extend(found)
+    return resolved
+
+
 def _make_operation_command(op: PdfOperation[Any]) -> click.Command:
     def callback(**raw: Any) -> None:
         ctx = click.get_current_context()
-        inputs = raw.pop("inputs")
+        paths = raw.pop("inputs")
         out = raw.pop("out")
+        exts = raw.pop("ext")
         try:
             payload = _collect_params(op, ctx, raw)
             params = op.params_model(**payload)
-            pdf_inputs = [PdfInput(Path(p).expanduser().read_bytes(), Path(p).name) for p in inputs]
+            pairs = _expand_paths(paths, _resolve_whitelist(exts))
+            pdf_inputs = [PdfInput(p.read_bytes(), rel) for p, rel in pairs]
             result = op.execute(pdf_inputs, params)
         except (PdfToolkitError, OSError, ValueError) as exc:
             raise click.ClickException(str(exc)) from exc
@@ -133,6 +176,10 @@ def _make_operation_command(op: PdfOperation[Any]) -> click.Command:
         click.Option(
             ["-o", "--out", "out"], type=click.Path(path_type=Path), help="diretório de saída"
         ),
+        click.Option(
+            ["--ext", "ext"], multiple=True,
+            help="extensões aceitas ao expandir pastas (padrão: .pdf)",
+        ),
         click.Option(["--json", "json_params"], help="parâmetros como objeto JSON"),
     ]
     params.extend(
@@ -142,12 +189,21 @@ def _make_operation_command(op: PdfOperation[Any]) -> click.Command:
     return click.Command(name=op.name, params=params, callback=callback, help=op.summary)
 
 
+def _safe_destination(out: Path, filename: str) -> Path:
+    """Resolve o destino de um artefato, rejeitando path absoluto ou traversal."""
+    relative = PurePosixPath(filename)
+    if relative.is_absolute() or ".." in relative.parts:
+        raise click.ClickException(f"nome de artefato inválido: {filename}")
+    return out / relative
+
+
 def _emit(result: Any, out: Path | None) -> None:
     if result.artifacts:
         out_dir = out or Path.cwd()
         out_dir.mkdir(parents=True, exist_ok=True)
         for artifact in result.artifacts:
-            destination = out_dir / artifact.filename
+            destination = _safe_destination(out_dir, artifact.filename)
+            destination.parent.mkdir(parents=True, exist_ok=True)
             destination.write_bytes(artifact.data)
             click.echo(f"escrito: {destination}")
     if result.meta:

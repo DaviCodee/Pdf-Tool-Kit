@@ -65,3 +65,27 @@ def test_invalid_params_422(make_pdf):
         "/operations/rotate", files=files, data={"params": json.dumps({"degrees": 45})}
     )
     assert response.status_code == 422
+
+
+def test_multi_file_fan_out_returns_zip(make_pdf):
+    import io
+    import zipfile
+
+    files = [
+        ("files", ("a.pdf", make_pdf(2, "A"), "application/pdf")),
+        ("files", ("sub/b.pdf", make_pdf(1, "B"), "application/pdf")),
+    ]
+    response = client.post(
+        "/operations/rotate", files=files, data={"params": json.dumps({"degrees": 90})}
+    )
+    assert response.status_code == 200, response.text
+    assert response.headers["content-type"] == "application/zip"
+    names = zipfile.ZipFile(io.BytesIO(response.content)).namelist()
+    assert "rotacionado.pdf" in names
+    assert "sub/rotacionado.pdf" in names
+
+
+def test_listing_exposes_fan_out():
+    response = client.get("/operations")
+    ops = {op["name"]: op for op in response.json()}
+    assert ops["rotate"]["fan_out"] == "True"

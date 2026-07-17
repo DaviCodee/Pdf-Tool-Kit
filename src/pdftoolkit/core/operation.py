@@ -2,26 +2,44 @@
 
 Toda operação é uma classe que declara metadados (nome, categoria, resumo), o modelo
 de parâmetros e quantos documentos de entrada aceita, além de implementar ``run``.
+
+Operações de entrada única (``min_inputs <= 1`` e ``max_inputs == 1``) ganham fan-out
+automático: ao receber N entradas, ``execute`` roda a operação uma vez por entrada e
+agrega os artefatos num único resultado (metadados por entrada em ``meta["per_input"]``).
+Operações de aridade fixa (``compare``, ``stamp``, ``overlay``) ou ilimitada (``merge``,
+``batch-compress``) nunca disparam o fan-out — o contrato ``min_inputs``/``max_inputs``
+continua mandando.
 """
 
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
-from typing import ClassVar, Generic, TypeVar
+from pathlib import PurePosixPath
+from typing import Any, ClassVar, Generic, TypeVar
 
-from pdftoolkit.core.errors import InvalidInputError
-from pdftoolkit.core.io import OperationResult, PdfInput
+from pdftoolkit.core.errors import InvalidInputError, PdfToolkitError
+from pdftoolkit.core.io import Artifact, OperationResult, PdfInput
 from pdftoolkit.core.params import OperationParams
 
 P = TypeVar("P", bound=OperationParams)
 
 
+def _dedupe(filename: str, seen: set[str]) -> str:
+    """Garante nome único entre os artefatos agregados pelo fan-out."""
+    candidate, path, n = filename, PurePosixPath(filename), 2
+    while candidate in seen:
+        candidate = str(path.with_name(f"{path.stem}-{n}{path.suffix}"))
+        n += 1
+    seen.add(candidate)
+    return candidate
+
+
 class PdfOperation(ABC, Generic[P]):
     """Unidade de trabalho do toolkit.
 
-    Subclasses fixam o tipo de parâmetro via ``PdfOperation[MeuParams]`` e definem os
-    atributos de classe abaixo.
+    Subclasses fixam o tipo de parâmetro via ``PdfOperation[MeuParams]`` e definem
+    os atributos de classe abaixo.
     """
 
     name: ClassVar[str]
@@ -30,9 +48,10 @@ class PdfOperation(ABC, Generic[P]):
     params_model: ClassVar[type[OperationParams]]
     min_inputs: ClassVar[int] = 1
     max_inputs: ClassVar[int | None] = 1
+    fan_out: ClassVar[bool] = True
 
     def check_inputs(self, inputs: Sequence[PdfInput]) -> None:
-        """Valida a quantidade de documentos de entrada."""
+        """Valida a quantidade de entradas."""
         count = len(inputs)
         if count < self.min_inputs:
             raise InvalidInputError(
@@ -49,7 +68,40 @@ class PdfOperation(ABC, Generic[P]):
     def run(self, inputs: Sequence[PdfInput], params: P) -> OperationResult:
         """Executa a operação e devolve o resultado."""
 
+    def _wants_fan_out(self, inputs: Sequence[PdfInput]) -> bool:
+        return (
+            self.fan_out
+            and self.min_inputs <= 1
+            and self.max_inputs == 1
+            and len(inputs) > 1
+        )
+
+    def _execute_fan_out(self, inputs: Sequence[PdfInput], params: P) -> OperationResult:
+        artifacts: list[Artifact] = []
+        per_input: list[dict[str, Any]] = []
+        seen: set[str] = set()
+        for item in inputs:
+            self.check_inputs([item])
+            try:
+                result = self.run([item], params)
+            except PdfToolkitError as exc:
+                raise type(exc)(f"{item.name}: {exc}") from exc
+            prefix = PurePosixPath(item.name).parent
+            for artifact in result.artifacts:
+                name = artifact.filename
+                if prefix != PurePosixPath("."):
+                    name = (prefix / name).as_posix()
+                artifact.filename = _dedupe(name, seen)
+                artifacts.append(artifact)
+            per_input.append({"name": item.name, "meta": result.meta})
+        return OperationResult(
+            artifacts=artifacts,
+            meta={"fan_out": True, "inputs": len(inputs), "per_input": per_input},
+        )
+
     def execute(self, inputs: Sequence[PdfInput], params: P) -> OperationResult:
-        """Valida as entradas e chama :meth:`run`."""
+        """Valida as entradas e chama :meth:`run` (uma vez, ou por entrada em fan-out)."""
+        if self._wants_fan_out(inputs):
+            return self._execute_fan_out(inputs, params)
         self.check_inputs(inputs)
         return self.run(inputs, params)
