@@ -188,7 +188,13 @@ def compare_visual(
             else:
                 # página existe em só um dos documentos
                 has_diff = True
-                composite = img1 or img2
+                if img1 is not None:
+                    composite = img1
+                else:
+                    assert img2 is not None
+                    composite = img2
+
+            assert ref is not None
 
             buf = io.BytesIO()
             composite.save(buf, format="PNG")
