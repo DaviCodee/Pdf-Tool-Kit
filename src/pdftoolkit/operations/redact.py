@@ -45,6 +45,40 @@ class RedactOperation(PdfOperation[RedactParams]):
         return OperationResult(artifacts=[artifact], meta={"redacted": count})
 
 
+class RedactPreviewParams(OperationParams):
+    """Mesma forma de `RedactParams`, sem `output_name` — não há saída."""
+
+    terms: list[str] | None = None
+    pattern: str | None = None
+
+    @model_validator(mode="after")
+    def _exactly_one(self) -> RedactPreviewParams:
+        if bool(self.terms) == bool(self.pattern):
+            raise ValueError("informe 'terms' OU 'pattern' (exatamente um)")
+        return self
+
+
+@register
+class RedactPreviewOperation(PdfOperation[RedactPreviewParams]):
+    name = "redact-preview"
+    category = "seguranca"
+    summary = (
+        "Conta quantas ocorrências cada termo/regex teria no PDF sem "
+        "modificar nada. Retorna `{total, samples}` via JSON (sem bytes)."
+    )
+    params_model = RedactPreviewParams
+
+    def run(self, inputs: Sequence[PdfInput], params: RedactPreviewParams) -> OperationResult:
+        item = inputs[0]
+        ensure_pdf(item.data, item.name)
+        if params.terms:
+            preview = redact_engine.preview_terms(item.data, params.terms)
+        else:
+            assert params.pattern is not None
+            preview = redact_engine.preview_regex(item.data, params.pattern)
+        return OperationResult(artifacts=[], meta=preview)
+
+
 class RedactRegexParams(OperationParams):
     pattern: str
     output_name: str = "redigido.pdf"
