@@ -202,16 +202,130 @@ def extract_page_texts(data: bytes, password: str | None = None) -> list[str]:
     return [page.extract_text() or "" for page in reader.pages]
 
 
-def read_form_fields(data: bytes, password: str | None = None) -> dict[str, str]:
-    """Lê os campos de formulário como ``{nome: valor}``."""
+def _field_type_name(field: object) -> str:
+    """Mapeia /FT para nome human-readable que o front sabe renderizar.
+
+    /FT: Tx=text, Btn=button (checkbox ou radio), Ch=choice, Sig=signature.
+    Para Btn, /Ff bit 32768 (Rb) = radio; sem o bit = checkbox.
+    """
+    if not hasattr(field, "get"):
+        return "unknown"
+    ft = field.get("/FT")
+    if ft is None:
+        return "unknown"
+    name = str(ft).lstrip("/")
+    if name == "Btn":
+        try:
+            ff = int(field.get("/Ff") or 0)
+        except (TypeError, ValueError):
+            ff = 0
+        return "radio" if (ff & 32768) else "checkbox"
+    if name == "Tx":
+        return "text"
+    if name == "Ch":
+        return "choice"
+    if name == "Sig":
+        return "signature"
+    return name.lower() or "unknown"
+
+
+def _field_is_required(field: object) -> bool:
+    """Bit 2 (valor 2) de /Ff = required."""
+    if not hasattr(field, "get"):
+        return False
+    try:
+        ff = int(field.get("/Ff") or 0)
+    except (TypeError, ValueError):
+        return False
+    return bool(ff & 2)
+
+
+def _field_value(field: object, type_name: str) -> object:
+    """Extrai `/V` no tipo certo (bool pra checkbox, list pra choice, str resto)."""
+    if not hasattr(field, "get"):
+        return None
+    raw = field.get("/V")
+    if raw is None:
+        return "" if type_name in ("text", "choice") else False
+    if type_name == "checkbox":
+        return bool(raw)
+    if type_name == "choice":
+        if isinstance(raw, list):
+            return ", ".join(str(v) for v in raw)
+        return str(raw)
+    return str(raw)
+
+
+def _field_options(field: object) -> list[str] | None:
+    """Lê /Opt (choice/radio) ou deriva do estado dos kids (radio)."""
+    if not hasattr(field, "get"):
+        return None
+    opt = field.get("/Opt")
+    if opt is None:
+        return None
+    if isinstance(opt, list):
+        return [str(o) for o in opt]
+    return [str(opt)]
+
+
+def _field_rect(field: object) -> list[float] | None:
+    """Lê /Rect (posicionamento do widget) — o pypdf às vezes põe no indirect_reference.
+
+    Páginas com widget + field mesclados expõem /Rect via `indirect_reference`;
+    outros casos via `field.get("/Rect")` ou via kids. Tenta todos.
+    """
+    rect = None
+    if hasattr(field, "get") and field.get("/Rect") is not None:
+        rect = field.get("/Rect")
+    if rect is None and hasattr(field, "indirect_reference"):
+        try:
+            rect = field.indirect_reference.get("/Rect")
+        except Exception:
+            rect = None
+    if rect is None and hasattr(field, "get") and field.get("/Kids"):
+        for kid in field.get("/Kids"):
+            try:
+                kid_rect = kid.get_object().get("/Rect") if hasattr(kid, "get_object") else kid.get("/Rect")
+            except Exception:
+                kid_rect = None
+            if kid_rect is not None:
+                rect = kid_rect
+                break
+    if rect is None:
+        return None
+    try:
+        return [float(v) for v in rect]
+    except (TypeError, ValueError):
+        return None
+
+
+def read_form_fields(data: bytes, password: str | None = None) -> list[dict[str, object]]:
+    """Lê os campos do PDF AcroForm com metadados ricos por campo.
+
+    Shape do retorno: ``[{"name", "type", "value", "options", "required", "rect"}]``.
+
+    Tipos: ``text``, ``checkbox``, ``radio``, ``choice``, ``signature``, ``unknown``.
+    """
     reader = open_reader(data, password)
     fields = reader.get_fields()
     if not fields:
-        return {}
-    result: dict[str, str] = {}
+        return []
+    result: list[dict[str, object]] = []
     for name, field in fields.items():
-        value = field.get("/V") if hasattr(field, "get") else None
-        result[str(name)] = "" if value is None else str(value)
+        try:
+            type_name = _field_type_name(field)
+            entry: dict[str, object] = {
+                "name": str(name),
+                "type": type_name,
+                "value": _field_value(field, type_name),
+                "options": _field_options(field),
+                "required": _field_is_required(field),
+                "rect": _field_rect(field),
+            }
+            result.append(entry)
+        except Exception:
+            # Não bloquear a leitura inteira se um campo estiver corrompido.
+            continue
     return result
 
 

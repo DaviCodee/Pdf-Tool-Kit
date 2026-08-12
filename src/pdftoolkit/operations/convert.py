@@ -101,8 +101,27 @@ class ThumbnailOperation(PdfOperation[ThumbnailParams]):
 
 
 class ImagesToPdfParams(OperationParams):
+    """Combina imagens (PNG/JPG) em um único PDF, uma por página.
+
+    O campo `dpi` aceita presets 72/150/300/600 (front-end renderiza chips).
+    Maior dpi = mais pixels por página = arquivo maior + menos zoom no reader.
+    """
+
     dpi: int = Field(default=150, ge=10, le=600)
     output_name: str = "imagens.pdf"
+
+    model_config = {
+        "json_schema_extra": {
+            "x-inputs": {
+                "dpi": {
+                    "type": "number_with_presets",
+                    "presets": [72, 150, 300, 600],
+                    "label": "dpi (qualidade)",
+                    "help": "maior dpi = mais pixels = menos zoom no reader.",
+                },
+            }
+        }
+    }
 
 
 @register

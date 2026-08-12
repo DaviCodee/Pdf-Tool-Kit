@@ -21,14 +21,18 @@ class FormReadParams(OperationParams):
 class FormReadOperation(PdfOperation[FormReadParams]):
     name = "form-read"
     category = "info"
-    summary = "Lista os campos de formulário e seus valores atuais."
+    summary = (
+        "Lista os campos do formulário AcroForm com metadados: nome, tipo "
+        "(text/checkbox/radio/choice/signature), valor atual, opções, "
+        "obrigatoriedade e posição."
+    )
     params_model = FormReadParams
 
     def run(self, inputs: Sequence[PdfInput], params: FormReadParams) -> OperationResult:
         item = inputs[0]
         ensure_pdf(item.data, item.name)
         fields = pe.read_form_fields(item.data)
-        return OperationResult(artifacts=[], meta={"fields": fields})
+        return OperationResult(artifacts=[], meta={"fields": fields, "count": len(fields)})
 
 
 class FormFillParams(OperationParams):
