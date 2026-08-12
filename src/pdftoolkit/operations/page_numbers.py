@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import Literal
 
 from pydantic import field_validator
 
@@ -16,31 +17,26 @@ from pdftoolkit.core.validation import ensure_pdf, safe_filename
 from pdftoolkit.engines import overlay
 from pdftoolkit.engines import pypdf_engine as pe
 
-_POSITIONS = {
+# Literal vira `enum` no JSON Schema do pydantic — o hub do site renderiza
+# isso como <select> automaticamente, sem hardcode no frontend.
+Position = Literal[
     "top-left",
     "top-center",
     "top-right",
     "bottom-left",
     "bottom-center",
     "bottom-right",
-}
+]
 
 
 class PageNumbersParams(OperationParams):
     start: int = 1
-    position: str = "bottom-center"
+    position: Position = "bottom-center"
     margin: float = 36.0
     font_size: float = 11.0
     template: str = "{n}"
     pages: str | None = None
     output_name: str = "numerado.pdf"
-
-    @field_validator("position")
-    @classmethod
-    def _known_position(cls, value: str) -> str:
-        if value not in _POSITIONS:
-            raise ValueError(f"posição inválida; use uma de {sorted(_POSITIONS)}")
-        return value
 
     @field_validator("template")
     @classmethod
@@ -113,18 +109,11 @@ class BatesParams(OperationParams):
     suffix: str = ""
     start: int = 1
     digits: int = 6
-    position: str = "bottom-right"
+    position: Position = "bottom-right"
     margin: float = 36.0
     font_size: float = 10.0
     pages: str | None = None
     output_name: str = "bates.pdf"
-
-    @field_validator("position")
-    @classmethod
-    def _known_position(cls, value: str) -> str:
-        if value not in _POSITIONS:
-            raise ValueError(f"posição inválida; use uma de {sorted(_POSITIONS)}")
-        return value
 
 
 @register

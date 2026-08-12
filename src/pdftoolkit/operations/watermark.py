@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import Literal
 
-from pydantic import Field, field_validator
+from pydantic import Field
 
 from pdftoolkit.core.errors import InvalidInputError
 from pdftoolkit.core.io import Artifact, OperationResult, PdfInput
@@ -18,22 +19,19 @@ from pdftoolkit.engines import pypdf_engine as pe
 from pdftoolkit.engines import qr as qr_engine
 
 
+# Anchor vira enum no JSON Schema → <select> no hub.
+Anchor = Literal["left", "center", "right"]
+
+
 class AddTextParams(OperationParams):
     text: str = Field(min_length=1)
     x: float = 0.0
     y: float = 0.0
     font_size: float = 12.0
-    anchor: str = "left"
+    anchor: Anchor = "left"
     rgb: tuple[float, float, float] = (0.0, 0.0, 0.0)
     pages: str | None = None
     output_name: str = "com-texto.pdf"
-
-    @field_validator("anchor")
-    @classmethod
-    def _valid_anchor(cls, value: str) -> str:
-        if value not in {"left", "center", "right"}:
-            raise ValueError("anchor deve ser 'left', 'center' ou 'right'")
-        return value
 
 
 class WatermarkParams(OperationParams):
