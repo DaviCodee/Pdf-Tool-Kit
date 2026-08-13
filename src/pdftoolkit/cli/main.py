@@ -108,10 +108,21 @@ def _collect_params(
             continue
         value = raw[name]
         annotation, _ = _unwrap_optional(fields[name].annotation)
-        if get_origin(annotation) is dict:
+        origin = get_origin(annotation)
+        if origin is dict:
             payload[name] = dict(_split_pair(item) for item in value)
         elif isinstance(value, tuple):
             payload[name] = list(value)
+        elif origin is Literal and isinstance(value, str):
+            # click.Choice retorna str; Literal[int] precisa do tipo certo.
+            # Faz coercion str → int/float quando o Literal alvo é numérico.
+            literal_args = get_args(annotation)
+            if literal_args and isinstance(literal_args[0], int):
+                payload[name] = int(value)
+            elif literal_args and isinstance(literal_args[0], float):
+                payload[name] = float(value)
+            else:
+                payload[name] = value
         else:
             payload[name] = value
     return payload

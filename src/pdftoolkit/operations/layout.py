@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from pdftoolkit.core.io import Artifact, OperationResult, PdfInput
 from pdftoolkit.core.operation import PdfOperation
@@ -16,6 +17,7 @@ from pdftoolkit.engines import pikepdf_engine as pike
 from pdftoolkit.engines import pypdf_engine as pe
 
 # Tamanhos predefinidos em pontos (72 pt = 1 polegada).
+# `tabloid` só existe em `page-size` (nup não usa — folha grande demais pro n-up).
 _PRESETS: dict[str, tuple[float, float]] = {
     "a4": (595.28, 841.89),
     "a3": (841.89, 1190.55),
@@ -25,31 +27,31 @@ _PRESETS: dict[str, tuple[float, float]] = {
     "tabloid": (792.0, 1224.0),
 }
 
+# nup aceita só os 5 presets menores (folha A5+letter), não tabloid.
+NupPaper = Literal["a3", "a4", "a5", "letter", "legal"]
+PageSizePreset = Literal["a3", "a4", "a5", "letter", "legal", "tabloid"]
+
 
 class PageSizeParams(OperationParams):
-    preset: str | None = None
+    preset: PageSizePreset | None = None
     width: float | None = Field(default=None, gt=0)
     height: float | None = Field(default=None, gt=0)
     pages: str | None = None
     output_name: str = "redimensionado.pdf"
 
-    def model_post_init(self, __context: object) -> None:
+    @model_validator(mode="after")
+    def _preset_or_custom(self) -> PageSizeParams:
         if self.preset is None and (self.width is None or self.height is None):
-            raise ValueError("informe 'preset' ou ambos 'width' e 'height'")
-        if self.preset is not None and self.preset.lower() not in _PRESETS:
-            raise ValueError(f"preset inválido; opções: {sorted(_PRESETS)}")
+            raise ValueError("informe 'preset' OU ambos 'width' e 'height'")
+        return self
 
 
 class NupParams(OperationParams):
     n: int = Field(default=2, ge=2, le=64)
-    paper: str = "a4"
+    paper: NupPaper = "a4"
     landscape: bool | None = None
     margin: float = Field(default=4.0, ge=0.0)
     output_name: str = "nup.pdf"
-
-    def model_post_init(self, __context: object) -> None:
-        if self.paper.lower() not in ("a3", "a4", "a5", "letter", "legal"):
-            raise ValueError("papel inválido; opções: a3, a4, a5, letter, legal")
 
 
 @register
@@ -89,7 +91,7 @@ class PageSizeOperation(PdfOperation[PageSizeParams]):
         item = inputs[0]
         ensure_pdf(item.data, item.name)
         if params.preset is not None:
-            width, height = _PRESETS[params.preset.lower()]
+            width, height = _PRESETS[params.preset]
         else:
             assert params.width is not None and params.height is not None
             width, height = params.width, params.height

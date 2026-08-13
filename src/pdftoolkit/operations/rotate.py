@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-
-from pydantic import field_validator
+from typing import Literal
 
 from pdftoolkit.core.io import Artifact, OperationResult, PdfInput
 from pdftoolkit.core.operation import PdfOperation
@@ -14,18 +13,16 @@ from pdftoolkit.core.registry import register
 from pdftoolkit.core.validation import ensure_pdf, safe_filename
 from pdftoolkit.engines import pypdf_engine as pe
 
+# Literal vira `enum` no JSON Schema — hub renderiza <select> automaticamente,
+# sem precisar de sidecar config. Inclui os sentidos horário/anti-horário
+# porque ambos são úteis (90 vs -90 alinha em direções opostas).
+Rotation = Literal[90, -90, 180, -180, 270, -270]
+
 
 class RotateParams(OperationParams):
-    degrees: int
+    degrees: Rotation
     pages: str | None = None
     output_name: str = "rotacionado.pdf"
-
-    @field_validator("degrees")
-    @classmethod
-    def _multiple_of_90(cls, value: int) -> int:
-        if value % 90 != 0 or value == 0:
-            raise ValueError("graus deve ser múltiplo de 90 diferente de zero")
-        return value
 
 
 @register
@@ -52,15 +49,8 @@ class RotateOperation(PdfOperation[RotateParams]):
 
 
 class BatchRotateParams(OperationParams):
-    degrees: int
+    degrees: Rotation
     pages: str | None = None
-
-    @field_validator("degrees")
-    @classmethod
-    def _multiple_of_90(cls, value: int) -> int:
-        if value % 90 != 0 or value == 0:
-            raise ValueError("graus deve ser múltiplo de 90 diferente de zero")
-        return value
 
 
 @register

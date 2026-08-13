@@ -42,6 +42,22 @@ class WatermarkParams(OperationParams):
     pages: str | None = None
     output_name: str = "marca-dagua.pdf"
 
+    # Hint pro hub: renderizar `opacity` com chips clicáveis pros presets
+    # comuns (0.15 default = bem sutil, 0.3 visível, 0.5 forte, 0.7 quase opaco).
+    # User ainda pode digitar valor custom no input.
+    model_config = {
+        "json_schema_extra": {
+            "x-inputs": {
+                "opacity": {
+                    "type": "number_with_presets",
+                    "presets": [0.15, 0.3, 0.5, 0.7],
+                    "label": "opacidade (0 = invisível, 1 = opaco)",
+                    "help": "0.15 sutil · 0.3 visível · 0.5 forte · 0.7 quase opaco.",
+                },
+            }
+        }
+    }
+
 
 @register
 class WatermarkOperation(PdfOperation[WatermarkParams]):
