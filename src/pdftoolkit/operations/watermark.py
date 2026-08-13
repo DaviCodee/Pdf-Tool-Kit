@@ -7,7 +7,7 @@ from typing import Literal
 
 from pydantic import Field, field_validator
 
-from pdftoolkit.core.errors import InvalidInputError
+from pdftoolkit.core.errors import InvalidInputError, OperationError
 from pdftoolkit.core.io import Artifact, OperationResult, PdfInput
 from pdftoolkit.core.operation import PdfOperation
 from pdftoolkit.core.params import OperationParams
@@ -37,35 +37,31 @@ class AddTextParams(OperationParams):
 class WatermarkParams(OperationParams):
     text: str = Field(min_length=1)
     font_size: float = 48.0
-    # Aceita 0-1 (ratio) OU 1-100 (percentual, divide por 100). Mantém default em
-    # 0.15 pra preservar a opacidade sutil que o toolkit sempre usou — a dualidade
-    # só afeta users que digitam 15, 50, etc pensando em %.
-    opacity: float = Field(default=0.15, ge=0.0, le=100.0)
+    # Convenção única 0-100 (percentual). Slider no hub renderiza esse range.
+    # Quebrou compat com a versão anterior (que aceitava ratio 0-1), mas a forma
+    # ambígua causava confusão (typing 30 = 0.3 ratio = transparente, não 30%).
+    opacity: float = Field(default=30.0, ge=0.0, le=100.0)
     angle: float = 45.0
     pages: str | None = None
     output_name: str = "marca-dagua.pdf"
 
-    @field_validator("opacity", mode="after")
-    @classmethod
-    def _normalize_opacity(cls, value: float) -> float:
-        # Convenção legacy: 0-1 = ratio, > 1 = percentual (divide por 100).
-        # 0.15 → 0.15 (ratio, sem conversão). 15 → 0.15 (15% = 0.15 ratio).
-        if value > 1.0:
-            return value / 100.0
-        return value
-
-    # Hint pro hub. O input renderiza como `<input type="number">` simples;
-    # presets e chips não são mais renderizados (ver toolkit-hub.js followup).
+    # Hint pro hub: opacity vira slider com chips de preset. text + font_size
+    # + angle também disparam re-preview quando mudam (não só opacity).
     model_config = {
         "json_schema_extra": {
             "x-inputs": {
                 "opacity": {
+                    "type": "slider",
                     "label": "opacidade",
-                    "help": (
-                        "0.15 sutil · 0.3 visível · 0.5 forte · 0.7 quase opaco. "
-                        "aceita 0-1 (ratio) ou 1-100 (percentual) — "
-                        "valores > 1 são divididos por 100."
-                    ),
+                    "help": "0 invisível · 30 sutil · 50 visível · 70 forte · 100 opaco.",
+                    "min": 0,
+                    "max": 100,
+                    "step": 1,
+                    "presets": [15, 30, 50, 70],
+                    "unit": "%",
+                    # IDs das outras fields que disparam re-preview quando
+                    # mudam. Sem isso o preview só atualiza no slider.
+                    "preview_with": ["text", "font_size", "angle"],
                 },
             }
         }
@@ -100,7 +96,7 @@ class WatermarkOperation(PdfOperation[WatermarkParams]):
                 height,
                 params.text,
                 size=params.font_size,
-                opacity=params.opacity,
+                opacity=params.opacity / 100.0,
                 angle=params.angle,
             )
             pe.merge_overlay(writer, [index], stamp, over=True)
@@ -108,6 +104,61 @@ class WatermarkOperation(PdfOperation[WatermarkParams]):
         data = pe.write_bytes(writer)
         artifact = Artifact(data=data, filename=safe_filename(params.output_name))
         return OperationResult(artifacts=[artifact], meta={"stamped": len(targets)})
+
+
+# ---- Preview ---------------------------------------------------------------
+#
+# Aplica a marca d'água na primeira página só e devolve um PNG rasterizado
+# (PyMuPDF). Usado pelo hub pra mostrar preview ao vivo enquanto o user arrasta
+# o slider de opacidade. Mantém os mesmos params de WatermarkParams — quando
+# o toolkit adiciona um novo field, basta reusar a classe.
+#
+# Custo: ~150-400ms por request a 72 DPI (uma página). Bom o suficiente pra
+# debounce de 300ms no cliente. Se ficar lento, baixar DPI pra 60.
+
+class WatermarkPreviewParams(WatermarkParams):
+    output_name: str = "preview.png"  # só pra satisfazer OperationParams; não é gravado
+    dpi: int = 72  # 72 = rápido; hub pode pedir 90 se quiser mais detalhe
+
+
+@register
+class WatermarkPreviewOperation(PdfOperation[WatermarkPreviewParams]):
+    name = "watermark-preview"
+    category = "editar"
+    summary = "Preview rasterizado (PNG) da marca d'água na primeira página — alimenta o slider do hub."
+    params_model = WatermarkPreviewParams
+
+    def run(self, inputs: Sequence[PdfInput], params: WatermarkPreviewParams) -> OperationResult:
+        from pdftoolkit.engines import render as render_engine
+
+        item = inputs[0]
+        ensure_pdf(item.data, item.name)
+        reader = pe.open_reader(item.data)
+        writer = pe.clone_writer(reader)
+        width, height = pe.page_size(reader, 0)
+        stamp = overlay.make_watermark_overlay(
+            width,
+            height,
+            params.text,
+            size=params.font_size,
+            opacity=params.opacity / 100.0,
+            angle=params.angle,
+        )
+        pe.merge_overlay(writer, [0], stamp, over=True)
+        preview_pdf_bytes = pe.write_bytes(writer)
+        # Renderiza só a primeira página.
+        pngs = render_engine.render_pages(preview_pdf_bytes, indices=[0], fmt="png", dpi=params.dpi)
+        if not pngs:
+            raise OperationError("renderização não devolveu bytes")
+        artifact = Artifact(
+            data=pngs[0],
+            filename="preview.png",
+            media_type="image/png",
+        )
+        return OperationResult(
+            artifacts=[artifact],
+            meta={"page": 0, "dpi": params.dpi, "bytes": len(pngs[0])},
+        )
 
 
 @register
