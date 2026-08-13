@@ -118,6 +118,7 @@ class ImagesToPdfParams(OperationParams):
                     "presets": [72, 150, 300, 600],
                     "label": "dpi (qualidade)",
                     "help": "maior dpi = mais pixels = menos zoom no reader.",
+                    "unit": "dpi",
                 },
             }
         }

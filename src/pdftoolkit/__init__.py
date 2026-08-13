@@ -15,7 +15,7 @@ from pdftoolkit.core.io import Artifact, OperationResult, PdfInput
 from pdftoolkit.core.operation import PdfOperation
 from pdftoolkit.core.registry import all_operations, get_operation, register
 
-__version__ = "0.2.4"
+__version__ = "0.2.5"
 
 __all__ = [
     "Artifact",
