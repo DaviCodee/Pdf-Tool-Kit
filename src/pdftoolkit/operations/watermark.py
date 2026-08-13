@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from pdftoolkit.core.errors import InvalidInputError
 from pdftoolkit.core.io import Artifact, OperationResult, PdfInput
@@ -37,22 +37,35 @@ class AddTextParams(OperationParams):
 class WatermarkParams(OperationParams):
     text: str = Field(min_length=1)
     font_size: float = 48.0
-    opacity: float = Field(default=0.15, ge=0.0, le=1.0)
+    # Aceita 0-1 (ratio) OU 1-100 (percentual, divide por 100). Mantém default em
+    # 0.15 pra preservar a opacidade sutil que o toolkit sempre usou — a dualidade
+    # só afeta users que digitam 15, 50, etc pensando em %.
+    opacity: float = Field(default=0.15, ge=0.0, le=100.0)
     angle: float = 45.0
     pages: str | None = None
     output_name: str = "marca-dagua.pdf"
 
-    # Hint pro hub: renderizar `opacity` com chips clicáveis pros presets
-    # comuns (0.15 default = bem sutil, 0.3 visível, 0.5 forte, 0.7 quase opaco).
-    # User ainda pode digitar valor custom no input.
+    @field_validator("opacity", mode="after")
+    @classmethod
+    def _normalize_opacity(cls, value: float) -> float:
+        # Convenção legacy: 0-1 = ratio, > 1 = percentual (divide por 100).
+        # 0.15 → 0.15 (ratio, sem conversão). 15 → 0.15 (15% = 0.15 ratio).
+        if value > 1.0:
+            return value / 100.0
+        return value
+
+    # Hint pro hub. O input renderiza como `<input type="number">` simples;
+    # presets e chips não são mais renderizados (ver toolkit-hub.js followup).
     model_config = {
         "json_schema_extra": {
             "x-inputs": {
                 "opacity": {
-                    "type": "number_with_presets",
-                    "presets": [0.15, 0.3, 0.5, 0.7],
-                    "label": "opacidade (0 = invisível, 1 = opaco)",
-                    "help": "0.15 sutil · 0.3 visível · 0.5 forte · 0.7 quase opaco.",
+                    "label": "opacidade",
+                    "help": (
+                        "0.15 sutil · 0.3 visível · 0.5 forte · 0.7 quase opaco. "
+                        "aceita 0-1 (ratio) ou 1-100 (percentual) — "
+                        "valores > 1 são divididos por 100."
+                    ),
                 },
             }
         }

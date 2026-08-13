@@ -48,5 +48,6 @@ def test_watermark(pdf5):
 
 
 def test_watermark_opacity_bounds(pdf5):
+    # Acima de 100% é rejeitado (1.0 ratio + 100 = 200% > 100).
     with pytest.raises(ValidationError):
-        _run("watermark", pdf5, text="X", opacity=2.0)
+        _run("watermark", pdf5, text="X", opacity=150)
