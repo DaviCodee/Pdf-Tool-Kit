@@ -13,6 +13,7 @@ from pdftoolkit.core.operation import PdfOperation
 from pdftoolkit.core.params import OperationParams
 from pdftoolkit.core.registry import register
 from pdftoolkit.core.validation import ensure_pdf, safe_filename
+from pdftoolkit.engines.pikepdf_engine import _stamp_dc_metadata
 
 
 class ListAttachmentsParams(OperationParams):
@@ -59,6 +60,7 @@ class AddAttachmentOperation(PdfOperation[AddAttachmentParams]):
                 name = safe_filename(params.filename, fallback=attach.name or "anexo")
                 pdf.attachments[name] = attach.data
                 out = BytesIO()
+                _stamp_dc_metadata(pdf)
                 pdf.save(out)
                 data = out.getvalue()
         except Exception as exc:
@@ -130,6 +132,7 @@ class AddAttachmentsOperation(PdfOperation[AddAttachmentsParams]):
                         name = f"{stem}-{i}{dot}{ext}"
                     pdf.attachments[name] = attach.data
                     out = BytesIO()
+                    _stamp_dc_metadata(pdf)
                     pdf.save(out)
                     current = out.getvalue()
                 attached.append(name)

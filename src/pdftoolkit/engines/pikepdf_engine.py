@@ -15,6 +15,26 @@ import pikepdf
 
 from pdftoolkit.core.errors import EncryptedPdfError, OperationError
 
+# Identidade do toolkit no /Info do PDF. Sobrepõe o Producer/Creator que o
+# pikepdf injeta por padrão ("pikepdf X.Y.Z" / vazio) pra que todo PDF
+# gerado pelo davi·code carregue a marca do projeto.
+DC_PRODUCER = "davi-code (https://github.com/DaviCodee/Pdf-Tool-Kit)"
+DC_CREATOR = "davi-code (https://github.com/DaviCodee/Pdf-Tool-Kit)"
+
+
+def _stamp_dc_metadata(pdf: "pikepdf.Pdf") -> None:
+    """Carimba Producer/Creator davi-code em ``pdf.docinfo`` (pikepdf).
+
+    No pikepdf, o /Info fica em ``pdf.docinfo`` (lazy-criado). Se já existir
+    (ex.: PDF de entrada), sobrescreve — a marca davi-code tem prioridade.
+
+    NOTA: usa ``pdf.docinfo`` (string livre) em vez de ``open_metadata``,
+    porque o open_metadata rejeita valores com espaços ou ``/`` como
+    "Invalid tag name" — e o nosso DC_PRODUCER contém "/".
+    """
+    pdf.docinfo["/Producer"] = DC_PRODUCER
+    pdf.docinfo["/Creator"] = DC_CREATOR
+
 # Sufixos de variação que o PDF usa pra diferenciar pesos/estilos de uma família.
 # Match exact (case-sensitive) sobre o final do nome (sem "-Italic" extra, etc.).
 _STYLE_SUFFIXES = (
@@ -180,6 +200,7 @@ def remove_password(data: bytes, password: str | None = None) -> bytes:
     """Abre um PDF protegido e o regrava sem criptografia."""
     try:
         with pikepdf.open(BytesIO(data), password=password or "") as pdf:
+            _stamp_dc_metadata(pdf)
             out = BytesIO()
             pdf.save(out)
             return out.getvalue()
@@ -193,6 +214,7 @@ def linearize(data: bytes) -> bytes:
     """Regrava o PDF de forma linearizada (otimizado para visualização na web)."""
     try:
         with pikepdf.open(BytesIO(data)) as pdf:
+            _stamp_dc_metadata(pdf)
             out = BytesIO()
             pdf.save(out, linearize=True)
             return out.getvalue()
@@ -223,6 +245,11 @@ def remove_metadata(data: bytes) -> bytes:
             if "/Metadata" in pdf.Root:
                 del pdf.Root["/Metadata"]
             out = BytesIO()
+            # Re-stamp explícito: o helper recria o /Info com a marca davi-code.
+            # "remove metadata" = limpar o que o usuário subiu; preserva a
+            # nossa identidade no Producer/Creator. Sem isso, o PDF sairia
+            # sem /Info e visualizadores + nosso pdf-info mostrariam vazio.
+            _stamp_dc_metadata(pdf)
             pdf.save(out)
             return out.getvalue()
     except pikepdf.PasswordError as exc:
@@ -238,6 +265,7 @@ def flatten_annotations(data: bytes) -> bytes:
             pdf.generate_appearance_streams()
             pdf.flatten_annotations("all")
             out = BytesIO()
+            _stamp_dc_metadata(pdf)
             pdf.save(out)
             return out.getvalue()
     except Exception as exc:
@@ -276,6 +304,7 @@ def add_bookmarks(data: bytes, bookmarks: list[dict[str, Any]]) -> bytes:
                     page_idx = max(0, min(int(bm.get("page", 0)), len(pdf.pages) - 1))
                     outline.root.append(pikepdf.OutlineItem(str(bm["title"]), page_idx))
             out = BytesIO()
+            _stamp_dc_metadata(pdf)
             pdf.save(out)
             return out.getvalue()
     except Exception as exc:
@@ -431,6 +460,7 @@ def nup(
                 out.pages.append(pikepdf.Page(page_obj))
 
             result = BytesIO()
+            _stamp_dc_metadata(out)
             out.save(result)
             return result.getvalue()
     except pikepdf.PasswordError as exc:

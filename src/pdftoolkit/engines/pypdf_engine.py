@@ -17,6 +17,29 @@ from pdftoolkit.core.errors import EncryptedPdfError, OperationError
 # Caixa de corte: (esquerda, base, direita, topo) em pontos PDF.
 CropBox = tuple[float, float, float, float]
 
+# Identidade do toolkit no /Info do PDF. Sobrepõe o Producer/Creator que o
+# pypdf injeta por padrão ("pypdf X.Y.Z" / vazio) pra que todo PDF gerado
+# pelo davi·code carregue a marca do projeto.
+DC_PRODUCER = "davi-code (https://github.com/DaviCodee/Pdf-Tool-Kit)"
+DC_CREATOR = "davi-code (https://github.com/DaviCodee/Pdf-Tool-Kit)"
+
+
+def _stamp_dc_metadata(writer: PdfWriter) -> None:
+    """Aplica Producer/Creator do davi·code no ``writer`` (pypdf).
+
+    Idempotente: se a operação já setou Producer/Creator explicitamente
+    (ex.: via ``set_metadata`` com a chave ``/Producer``), sobrescreve
+    — a marca davi-code tem prioridade. Para preservar o valor da
+    operação, basta o caller setar o campo diretamente usando a API
+    do pypdf (``writer.add_metadata``) **após** chamar o helper.
+    """
+    writer.add_metadata(
+        {
+            "/Producer": DC_PRODUCER,
+            "/Creator": DC_CREATOR,
+        }
+    )
+
 
 def open_reader(data: bytes, password: str | None = None) -> PdfReader:
     """Abre um PDF a partir de bytes, decifrando se necessário."""
@@ -36,7 +59,8 @@ def count_pages(data: bytes, password: str | None = None) -> int:
 
 
 def write_bytes(writer: PdfWriter) -> bytes:
-    """Serializa um writer para bytes."""
+    """Serializa um writer para bytes, carimbando Producer/Creator davi-code."""
+    _stamp_dc_metadata(writer)
     buffer = BytesIO()
     writer.write(buffer)
     return buffer.getvalue()
